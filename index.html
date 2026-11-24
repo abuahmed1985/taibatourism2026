@@ -5,37 +5,251 @@
 <link rel="stylesheet" href="/styles.css"></head>
 <body>
 <header>
-  <div class="brand">
-    <div><h1>🏨 معهد طيبة العالي للتدريب</h1><p>المؤسسة العامة للتدريب التقني والمهني — دبلوم السياحة والفندقة</p></div>
-    <div><div class="pearl" title="لؤلؤة متوهجة"></div><div class="shoot"><i></i></div></div>
-    <div><button class="btn" onclick="toggleLang()" id="langBtn">English</button> <span id="userBox"></span></div>
+  <div class="topbar">
+    <div class="logo-mark" title="معهد طيبة">🏨</div>
+    <div class="brand">
+      <h1>معهد طيبة العالي للتدريب</h1>
+      <p>المؤسسة العامة للتدريب التقني والمهني — دبلوم السياحة والفندقة</p>
+    </div>
+    <div class="pearl-wrap" title="لؤلؤة متوهجة"><span class="meteor"></span><span class="meteor m2"></span><div class="pearl"></div></div>
+    <div class="top-actions">
+      <span class="welcome-chip hidden" id="userBox"></span>
+      <button class="btn ghost small" onclick="toggleLang()" id="langBtn">English</button>
+    </div>
   </div>
-  <nav id="tabs"></nav>
+  <nav class="tabs" id="tabs" aria-label="التبويبات الرئيسية"></nav>
 </header>
+<div id="adminBar">👑 <span id="adminBarText">لوحة التحكم متاحة لك — سجّلتِ كموظفة (إدارة / أكاديمي / مدربة)</span>
+  <button class="btn gold small" onclick="show('login');openAdmin()">فتح لوحة التحكم ⚙️</button></div>
 <main>
+  <!-- ===== Home ===== -->
   <section id="view-home" class="view">
-    <div class="card" style="text-align:center"><div class="pearl"></div><h2>دبلوم السياحة والفندقة</h2><p>16 مقرراً كاملاً في 4 مستويات — كتب 200+ صفحة، بنوك أسئلة، مكتبة صور وفيديوهات، رؤية المملكة 2030</p>
-    <button class="btn" onclick="show('courses')">ابدئي الدراسة</button> <button class="btn gold" onclick="show('login')">دخول المتدربات</button></div>
-    <div class="card"><h3>الأرقام السياحية</h3><div id="stats" class="grid"></div></div>
-    <div class="card"><h3>وجهات المملكة</h3><div id="destHome" class="grid"></div></div>
+    <div class="card shiny hero">
+      <div class="pearl-wrap"><span class="meteor"></span><span class="meteor m2"></span><div class="pearl"></div></div>
+      <h2>✨ دبلوم السياحة والفندقة ✨</h2>
+      <p class="lead">16 مقرراً كاملاً في 4 مستويات — كتب 200+ صفحة، بنك أسئلة 3328 سؤالاً، مكتبة صور وفيديوهات، ووجهات المملكة ورؤية 2030</p>
+      <div>
+        <button class="btn" onclick="show('courses')">📚 ابدئي الدراسة</button>
+        <button class="btn gold" onclick="show('login')">🔑 دخول المتدربات</button>
+        <button class="btn pink" onclick="show('media')">📷 المكتبة المرئية</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><b>16</b><span>مقرراً كاملاً</span></div>
+        <div class="hero-stat"><b>4</b><span>مستويات</span></div>
+        <div class="hero-stat"><b>168</b><span>درساً</span></div>
+        <div class="hero-stat"><b>3328</b><span>سؤالاً في بنك الأسئلة</span></div>
+        <div class="hero-stat"><b>119</b><span>صورة</span></div>
+        <div class="hero-stat"><b>10</b><span>فيديوهات</span></div>
+      </div>
+    </div>
+    <div class="card"><h3 class="section-title">📊 الأرقام السياحية</h3><div id="stats" class="grid"></div></div>
+    <div class="card"><h3 class="section-title">🗺️ مسار التعلم — 4 مستويات</h3>
+      <div class="grid">
+        <div class="card unit"><h4>🟦 المستوى الأول — الأساس</h4><p>مدخل إلى السياحة والفندقة، خدمة العملاء، الاتصال المهني، أساسيات الفندقة والمكاتب الأمامية.</p><button class="btn small" onclick="showCoursesLevel(1)">عرض مقررات المستوى الأول</button></div>
+        <div class="card unit"><h4>🟪 المستوى الثاني — الإدارة</h4><p>إدارة المكاتب الأمامية، الأغذية والمشروبات، التسويق السياحي، أنظمة الحجوزات.</p><button class="btn small" onclick="showCoursesLevel(2)">عرض مقررات المستوى الثاني</button></div>
+        <div class="card unit"><h4>🟧 المستوى الثالث — التخصص</h4><p>إدارة الفنادق والمنتجعات، الإرشاد السياحي، الفعاليات والمؤتمرات، الجودة وسلامة الضيوف.</p><button class="btn small" onclick="showCoursesLevel(3)">عرض مقررات المستوى الثالث</button></div>
+        <div class="card unit"><h4>🟩 المستوى الرابع — القيادة</h4><p>إدارة الوجهات، ريادة الأعمال السياحية، السياحة المستدامة ورؤية 2030، التدريب التعاوني ومشروع التخرج.</p><button class="btn small" onclick="showCoursesLevel(4)">عرض مقررات المستوى الرابع</button></div>
+      </div>
+    </div>
+    <div class="card"><h3 class="section-title">🌍 وجهات المملكة</h3><div id="destHome" class="grid"></div></div>
   </section>
-  <section id="view-courses" class="view hidden"><div class="card"><h2>المقررات</h2><select id="levelFilter" onchange="loadCourses()"><option value="">كل المستويات</option><option value="1">المستوى الأول</option><option value="2">المستوى الثاني</option><option value="3">المستوى الثالث</option><option value="4">المستوى الرابع</option></select><div id="courseList" class="grid"></div></div>
-  <div class="card hidden" id="courseDetail"></div></section>
-  <section id="view-library" class="view hidden"><div class="card"><h2>المكتبة</h2><div id="libraryList" class="grid"></div></div></section>
-  <section id="view-news" class="view hidden"><div class="card"><h2>الأخبار</h2><div id="newsList"></div></div></section>
-  <section id="view-training" class="view hidden"><div class="card"><h2>الدورات التدريبية</h2><div id="trainingList" class="grid"></div></div></section>
-  <section id="view-places" class="view hidden"><div class="card"><h2>الأرقام والأماكن السياحية</h2><div id="placesList" class="grid"></div></div></section>
-  <section id="view-vision" class="view hidden"><div class="card"><h2>🌟 رؤية المملكة 2030</h2><p>مجتمع حيوي، اقتصاد مزدهر، وطن طموح. مستهدفات الرؤية: 150 مليون زيارة، 10% مساهمة السياحة في الناتج المحلي، 1.6 مليون وظيفة سياحية، إكسبو 2030 وكأس العالم 2034. المشاريع العملاقة: نيوم، البحر الأحمر، العلا، الدرعية، القدية. دور السياحة والفندقة محوري في تحقيق الرؤية، وهذا الدبلوم يؤهل المتدربات لهذه الفرص.</p><div id="visionStats" class="grid"></div></div></section>
-  <section id="view-media" class="view hidden"><div class="card"><h2>المكتبة المرئية</h2><h3>📷 الصور</h3><div id="photoGrid" class="grid"></div><h3>🎬 الفيديوهات</h3><div id="videoList"></div></div></section>
-  <section id="view-contact" class="view hidden"><div class="card"><h2>تواصل معنا</h2><p>📧 <span id="cEmail"></span> &nbsp; 📱 <span id="cPhone"></span></p><input id="mName" placeholder="الاسم"><input id="mEmail" placeholder="البريد الإلكتروني"><textarea id="mMsg" placeholder="رسالتك"></textarea><button class="btn" onclick="sendMsg()">إرسال</button><p id="mOk" class="muted"></p></div></section>
-  <section id="view-login" class="view hidden"><div class="card"><h2>دخول المتدربات — تسجيل ذاتي مفتوح</h2>
-    <div id="authBox"><input id="uName" placeholder="اسم المستخدم"><input id="uPass" type="password" placeholder="كلمة المرور"><input id="uFull" placeholder="الاسم الكامل (للتسجيل فقط)"><select id="uLevel"><option value="1">المستوى الأول</option><option value="2">المستوى الثاني</option><option value="3">المستوى الثالث</option><option value="4">المستوى الرابع</option></select>
-    <button class="btn" onclick="login()">تسجيل الدخول</button> <button class="btn gold" onclick="register()">إنشاء حساب جديد (تسجيل ذاتي)</button><p id="authMsg" class="muted"></p></div>
-    <div id="myBox" class="hidden"><p id="myInfo"></p><h3>تغيير كلمة المرور</h3><input id="cpCur" type="password" placeholder="كلمة المرور الحالية"><input id="cpNew" type="password" placeholder="كلمة المرور الجديدة"><button class="btn" onclick="changePw()">تغيير كلمة المرور</button><p id="cpMsg"></p><button class="btn" onclick="logout()">تسجيل الخروج</button></div></div>
-    <div class="card hidden" id="adminPanel"><h2>لوحة التحكم</h2><div><button class="btn" onclick="loadUsers()">حسابات الدخول</button> <button class="btn" onclick="loadMsgs()">رسائل التواصل</button></div><div id="adminOut"></div>
-    <h3>إضافة خبر</h3><input id="nTitle" placeholder="عنوان الخبر"><textarea id="nBody" placeholder="نص الخبر"></textarea><button class="btn" onclick="addNews()">إضافة</button>
-    <h3>استيراد بنك أسئلة (JSON)</h3><textarea id="impJson" placeholder='[{"courseCode":"TRM-101","question":"...","options":["أ","ب","ج","د"],"correct":0}]'></textarea><button class="btn" onclick="importQ()">استيراد</button><p id="impMsg"></p></div></section>
+
+  <!-- ===== Courses ===== -->
+  <section id="view-courses" class="view hidden">
+    <div class="card">
+      <h2 class="section-title">📚 المقررات الدراسية</h2>
+      <p class="lead">16 مقرراً كاملاً — كل مقرر 5 وحدات، وكتاب كامل للتنزيل، وبنك أسئلة 208 أسئلة، واختبار تفاعلي.</p>
+      <div class="filters">
+        <select id="levelFilter" onchange="loadCourses()">
+          <option value="">كل المستويات (16 مقرراً)</option>
+          <option value="1">المستوى الأول</option><option value="2">المستوى الثاني</option>
+          <option value="3">المستوى الثالث</option><option value="4">المستوى الرابع</option>
+        </select>
+        <input id="courseSearch" placeholder="🔍 ابحثي عن مقرر…" oninput="loadCourses()" style="max-width:280px">
+      </div>
+      <div id="courseList" class="grid"></div>
+    </div>
+    <div class="card hidden" id="courseDetail"></div>
+  </section>
+
+  <!-- ===== Library ===== -->
+  <section id="view-library" class="view hidden">
+    <div class="card">
+      <h2 class="section-title">📖 المكتبة — الكتب الدراسية</h2>
+      <p class="lead">كتب المقررات الستة عشر كاملة للتنزيل (PDF بعد تسجيل الدخول، وWord وPowerPoint للمدربة والأكاديمي والإدارة فقط).</p>
+      <div id="libraryList" class="grid"></div>
+    </div>
+    <div class="card">
+      <h2 class="section-title">💻 كتب أنظمة الحجوزات</h2>
+      <p class="lead">كتاب مستقل لكل نظام — شرح بالخطوات مع شاشات النظام.</p>
+      <div id="bookingList" class="grid"></div>
+    </div>
+    <div class="card">
+      <h2 class="section-title">🗺️ كتب الوجهات السياحية</h2>
+      <p class="lead">كتاب معلومات عامة عن كل وجهة من وجهات المملكة — اقرئي التفاصيل الكاملة في تبويب «الأرقام والأماكن».</p>
+      <div id="destBooks" class="grid"></div>
+    </div>
+  </section>
+
+  <!-- ===== News ===== -->
+  <section id="view-news" class="view hidden">
+    <div class="card"><h2 class="section-title">📰 الأخبار</h2><div id="newsList"></div></div>
+  </section>
+
+  <!-- ===== Training ===== -->
+  <section id="view-training" class="view hidden">
+    <div class="card"><h2 class="section-title">🎓 الدورات التدريبية القصيرة</h2>
+      <p class="lead">دورات تطبيقية قصيرة بجانب الدبلوم — سجّلي اهتمامك عبر «تواصل معنا».</p>
+      <div id="trainingList" class="grid"></div></div>
+  </section>
+
+  <!-- ===== Places ===== -->
+  <section id="view-places" class="view hidden">
+    <div class="card"><h2 class="section-title">📊 الأرقام السياحية</h2><div id="placesStats" class="grid"></div></div>
+    <div class="card"><h2 class="section-title">🗺️ الأماكن السياحية في المملكة</h2>
+      <p class="lead">8 وجهات بتفاصيل كاملة — المعالم، موسم الزيارة، الأنشطة، وفيديو خاص بكل وجهة.</p>
+      <div id="placesList" class="grid"></div></div>
+  </section>
+
+  <!-- ===== Vision 2030 ===== -->
+  <section id="view-vision" class="view hidden">
+    <div class="card shiny hero">
+      <h2 class="section-title" style="justify-content:center">🌟 رؤية المملكة 2030</h2>
+      <p class="lead">أطلقت عام 2016 — طموحنا أن نكون في مقدمة دول العالم: مجتمع حيوي، اقتصاد مزدهر، وطن طموح.</p>
+    </div>
+    <div class="card"><h3 class="section-title">🏛️ الركائز الثلاث</h3>
+      <div class="grid">
+        <div class="card pillar"><div class="ico">💚</div><h4>مجتمع حيوي</h4><p>جودة حياة، ثقافة وترفيه، هوية وطنية، وسياحة تثري حياة المجتمع.</p></div>
+        <div class="card pillar"><div class="ico">💰</div><h4>اقتصاد مزدهر</h4><p>تنويع الاقتصاد بعيداً عن النفط، والسياحة قطاع واعد يوفر الوظائف وينمّي الناتج المحلي.</p></div>
+        <div class="card pillar"><div class="ico">🎯</div><h4>وطن طموح</h4><p>حكومة فاعلة ومواطن مسؤول — وطموح يضع المملكة في مقدمة العالم.</p></div>
+      </div>
+    </div>
+    <div class="card"><h3 class="section-title">🎯 المستهدفات الرقمية</h3><div id="visionStats" class="grid"></div></div>
+    <div class="card"><h3 class="section-title">📋 برامج تحقيق الرؤية (11 برنامجاً)</h3>
+      <ul class="prog-list">
+        <li>برنامج جودة الحياة</li><li>برنامج التحول الوطني</li><li>برنامج تطوير القطاع المالي</li>
+        <li>برنامج تنمية القدرات البشرية</li><li>برنامج خدمة ضيوف الرحمن</li><li>برنامج التحول الرقمي</li>
+        <li>برنامج صندوق الاستثمارات العامة</li><li>برنامج تطوير الصناعة الوطنية والخدمات اللوجستية</li>
+        <li>برنامج ريادة الشركات الوطنية</li><li>برنامج الشراكات الاستراتيجية</li><li>برنامج الاستدامة المالية</li>
+      </ul>
+    </div>
+    <div class="card"><h3 class="section-title">🏗️ المشاريع العملاقة (8 مشاريع)</h3>
+      <div class="mega"><span>نيوم</span><span>البحر الأحمر</span><span>الدرعية</span><span>العلا</span><span>القدية</span><span>روشن</span><span>ذا لاين</span><span>تروجينا</span></div>
+      <p style="margin-top:14px">دور السياحة والفندقة محوري في تحقيق الرؤية: 150 مليون زيارة مستهدفة بحلول 2030، و10% مساهمة السياحة في الناتج المحلي، و1.6 مليون وظيفة سياحية — وهذا الدبلوم يؤهل المتدربات مباشرة لهذه الفرص.</p>
+    </div>
+  </section>
+
+  <!-- ===== Media ===== -->
+  <section id="view-media" class="view hidden">
+    <div class="card">
+      <h2 class="section-title">📷 مكتبة الصور <span class="badge" id="photoCount"></span></h2>
+      <div class="filters">
+        <select id="photoCat" onchange="renderPhotos()">
+          <option value="">كل الفئات</option>
+        </select>
+      </div>
+      <div id="photoGrid" class="photo-grid"></div>
+    </div>
+    <div class="card">
+      <h2 class="section-title">🎬 مكتبة الفيديوهات <span class="badge">10 فيديوهات</span></h2>
+      <p class="lead">فيديوهات عن السياحة السعودية والوجهات والضيافة — اضغطي «مشاهدة» لفتح الفيديو على يوتيوب.</p>
+      <div id="videoList" class="grid"></div>
+    </div>
+  </section>
+
+  <!-- ===== Contact ===== -->
+  <section id="view-contact" class="view hidden">
+    <div class="card">
+      <h2 class="section-title">📞 تواصل معنا</h2>
+      <p class="lead">📧 <b id="cEmail">gh.saleh@taibainstitute.com.sa</b> &nbsp;|&nbsp; 📱 <b id="cPhone">0545038454</b></p>
+      <p class="muted">أرسلي استفسارك وستصل رسالتك إلى إدارة المعهد وتظهر في لوحة التحكم.</p>
+      <label>الاسم</label><input id="mName" placeholder="اسم المتدربة">
+      <label>البريد الإلكتروني</label><input id="mEmail" placeholder="example@mail.com">
+      <label>رسالتك</label><textarea id="mMsg" placeholder="اكتبي رسالتك هنا…"></textarea>
+      <button class="btn" onclick="sendMsg()">📨 إرسال الرسالة</button>
+      <p id="mOk" class="muted"></p>
+    </div>
+  </section>
+
+  <!-- ===== Login + Admin ===== -->
+  <section id="view-login" class="view hidden">
+    <div class="card">
+      <h2 class="section-title">🔑 دخول المتدربات — تسجيل ذاتي مفتوح</h2>
+      <p class="lead">كل متدربة تنشئ حسابها بنفسها (اسم مستخدم + كلمة مرور) — لا حاجة لحساب جاهز من الإدارة.</p>
+      <div id="authBox">
+        <div class="form-row">
+          <div><label>اسم المستخدم</label><input id="uName" placeholder="اسم المستخدم"></div>
+          <div><label>كلمة المرور</label><input id="uPass" type="password" placeholder="كلمة المرور (6 أحرف فأكثر)"></div>
+        </div>
+        <label>الاسم الكامل (للتسجيل فقط)</label><input id="uFull" placeholder="الاسم الكامل">
+        <label>المستوى (للتسجيل فقط)</label>
+        <select id="uLevel"><option value="1">المستوى الأول</option><option value="2">المستوى الثاني</option><option value="3">المستوى الثالث</option><option value="4">المستوى الرابع</option></select>
+        <button class="btn" onclick="login()">تسجيل الدخول</button>
+        <button class="btn gold" onclick="register()">✨ إنشاء حساب جديد (تسجيل ذاتي)</button>
+        <p id="authMsg" class="muted"></p>
+      </div>
+      <div id="myBox" class="hidden">
+        <p id="myInfo" style="font-weight:800"></p>
+        <h3>🔐 تغيير كلمة المرور</h3>
+        <div class="form-row">
+          <input id="cpCur" type="password" placeholder="كلمة المرور الحالية">
+          <input id="cpNew" type="password" placeholder="كلمة المرور الجديدة (6 أحرف فأكثر)">
+        </div>
+        <button class="btn" onclick="changePw()">تغيير كلمة المرور</button>
+        <p id="cpMsg"></p>
+        <button class="btn ghost" onclick="logout()">تسجيل الخروج</button>
+      </div>
+    </div>
+
+    <!-- ===== Admin panel: staff only, shown after staff login ===== -->
+    <div class="card gold-border hidden" id="adminPanel">
+      <div class="admin-head"><span style="font-size:34px">⚙️</span><div>
+        <h2>لوحة التحكم — الإدارة والأكاديمي والمدربة</h2>
+        <p class="muted" style="margin:0">هذه اللوحة تظهر فقط بعد تسجيل الدخول بحساب موظفين (admin / academic / trainer) — ولا تظهر للزوار ولا للمتدربات.</p>
+      </div></div>
+      <div class="admin-tabs">
+        <button id="at-users" class="active" onclick="adminTab('users')">👥 حسابات الدخول</button>
+        <button id="at-msgs" onclick="adminTab('msgs')">✉️ رسائل التواصل</button>
+        <button id="at-news" onclick="adminTab('news')">📰 إضافة خبر</button>
+        <button id="at-course" onclick="adminTab('course')">📚 إضافة مقرر / كتاب</button>
+        <button id="at-import" onclick="adminTab('import')">📥 استيراد بنك أسئلة</button>
+      </div>
+      <div id="admin-users" class="admin-pane">
+        <p class="muted">اضغطي «عرض الحسابات» ثم اكتبي كلمة مرور جديدة لأي حساب واضغطي «تعيين» — لا يمكن تعيين كلمة مرور لحسابك أنت من هنا (استخدمي «تغيير كلمة المرور» أعلاه).</p>
+        <button class="btn" onclick="loadUsers()">👥 عرض الحسابات</button>
+        <div id="adminOut"></div>
+      </div>
+      <div id="admin-msgs" class="admin-pane hidden">
+        <button class="btn" onclick="loadMsgs()">✉️ عرض رسائل التواصل</button>
+        <div id="adminMsgs"></div>
+      </div>
+      <div id="admin-news" class="admin-pane hidden">
+        <label>عنوان الخبر</label><input id="nTitle" placeholder="عنوان الخبر">
+        <label>نص الخبر</label><textarea id="nBody" placeholder="نص الخبر"></textarea>
+        <button class="btn" onclick="addNews()">➕ إضافة الخبر</button>
+        <p id="newsMsg" class="muted"></p>
+      </div>
+      <div id="admin-course" class="admin-pane hidden">
+        <div class="form-row">
+          <div><label>رمز المقرر</label><input id="cCode" placeholder="مثال: TRM-105"></div>
+          <div><label>المستوى</label><select id="cLevel"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+        </div>
+        <label>عنوان المقرر (عربي)</label><input id="cTitle" placeholder="عنوان المقرر">
+        <label>وصف المقرر</label><textarea id="cDesc" placeholder="وصف مختصر للمقرر"></textarea>
+        <button class="btn" onclick="addCourse()">➕ إضافة / تحديث المقرر</button>
+        <p id="courseMsg" class="muted"></p>
+      </div>
+      <div id="admin-import" class="admin-pane hidden">
+        <p class="muted">الصقي مصفوفة JSON للأسئلة — كل سؤال: courseCode و question و options (مصفوفة) و correct (رقم الخيار الصحيح) و explanation. مثال في الحقل أدناه. ⚠️ الاستيراد يُضيف فوق الموجود — لا تعيدي استيراد البنك الكامل بعد أول تشغيل.</p>
+        <textarea id="impJson" style="min-height:130px">[{"courseCode":"TRM-101","type":"mcq","question":"مثال سؤال؟","options":["الخيار الأول","الخيار الثاني","الخيار الثالث","الخيار الرابع"],"correct":0,"explanation":"شرح الإجابة."}]</textarea>
+        <button class="btn" onclick="importQ()">📥 استيراد الأسئلة</button>
+        <p id="impMsg"></p>
+      </div>
+    </div>
+  </section>
 </main>
-<footer>معهد طيبة العالي للتدريب — دبلوم السياحة والفندقة — <span id="fEmail"></span></footer>
+<footer>🏨 <b>معهد طيبة العالي للتدريب</b> — دبلوم السياحة والفندقة — المؤسسة العامة للتدريب التقني والمهني<br>
+📧 <span id="fEmail">gh.saleh@taibainstitute.com.sa</span> &nbsp;|&nbsp; 📱 0545038454</footer>
+<div class="toast" id="toast"></div>
 <script src="/app.js"></script>
 </body></html>

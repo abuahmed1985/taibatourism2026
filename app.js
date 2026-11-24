@@ -1,32 +1,336 @@
 'use strict';
+/* Taiba Tourism Diploma — Render UI (bright, shiny, light colours only). */
 let lang = 'ar', me = null, token = localStorage.getItem('taibaToken') || '';
-const TABS = [['home','الرئيسية','Home'],['courses','المقررات','Courses'],['library','المكتبة','Library'],['news','الأخبار','News'],['training','الدورات التدريبية','Training'],['places','الأرقام والأماكن','Places'],['vision','رؤية 2030','Vision 2030'],['media','المكتبة المرئية','Media'],['contact','تواصل معنا','Contact'],['login','دخول المتدربات','Login']];
+let allCourses = [], allPhotos = [];
+const TABS = [
+  ['home','الرئيسية','Home'],['courses','المقررات','Courses'],['library','المكتبة','Library'],
+  ['news','الأخبار','News'],['training','الدورات التدريبية','Training'],['places','الأرقام والأماكن','Places'],
+  ['vision','رؤية 2030','Vision 2030'],['media','المكتبة المرئية','Media'],['contact','تواصل معنا','Contact'],
+  ['login','دخول المتدربات','Login']
+];
 const $ = id => document.getElementById(id);
-function headers(){ return token ? { 'Content-Type':'application/json', Authorization:'Bearer '+token } : { 'Content-Type':'application/json' }; }
-async function api(p, opts={}){ const r = await fetch(p, { ...opts, headers: headers() }); if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error(e.error||('HTTP '+r.status)); } return r.json(); }
-function show(v){ document.querySelectorAll('.view').forEach(s=>s.classList.add('hidden')); $('view-'+v).classList.remove('hidden'); document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.v===v)); if(v==='courses')loadCourses(); if(v==='library')loadLibrary(); if(v==='news')loadNews(); if(v==='training')loadTraining(); if(v==='places')loadPlaces(); if(v==='media')loadMedia(); window.scrollTo(0,0); }
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const isStaff = () => me && ['admin','academic','trainer'].includes(me.role);
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500); }
+function headers(){ return token ? {'Content-Type':'application/json',Authorization:'Bearer '+token} : {'Content-Type':'application/json'}; }
+async function api(p, opts={}){ const r = await fetch(p, {...opts, headers:headers()}); if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error(e.error || ('HTTP '+r.status)); } return r.json(); }
+
+/* ---------- tabs & language ---------- */
 function renderTabs(){ $('tabs').innerHTML = TABS.map(t=>`<button data-v="${t[0]}" onclick="show('${t[0]}')">${lang==='ar'?t[1]:t[2]}</button>`).join(''); }
-function toggleLang(){ lang = lang==='ar'?'en':'ar'; document.documentElement.lang = lang; document.documentElement.dir = lang==='ar'?'rtl':'ltr'; $('langBtn').textContent = lang==='ar'?'English':'العربية'; renderTabs(); loadHome(); }
-function dlBtns(code, title){ if(!me) return `<button class="btn" onclick="show('login')">🔒 تسجيل الدخول للتنزيل</button>`; const staff=['admin','academic','trainer'].includes(me.role); let h=`<button class="btn" onclick="download('${code}','pdf')">📄 PDF</button>`; if(staff) h+=`<button class="btn gold" onclick="download('${code}','doc')">📝 Word</button><button class="btn gold" onclick="download('${code}','pptx')">📊 PowerPoint</button>`; else h+=`<span class="muted">Word و PowerPoint للمدربة والأكاديمي فقط</span>`; return h; }
-async function download(code, fmt){ try{ const r = await fetch(`/api/download/${code}/${fmt}`, { headers:{ Authorization:'Bearer '+token } }); if(!r.ok){ const e=await r.json().catch(()=>({})); alert(e.error||r.status); return; } const blob = await r.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download = code+'.'+(fmt==='doc'?'doc':fmt); a.click(); }catch(e){ alert(e.message); } }
-async function loadHome(){ const [s,d] = await Promise.all([api('/api/stats'), api('/api/destinations')]); $('stats').innerHTML = s.slice(0,6).map(x=>`<div class="card"><div class="stat">${x.value} ${x.unit}</div><div>${lang==='ar'?x.labelAr:x.labelEn}</div></div>`).join(''); $('destHome').innerHTML = d.map(x=>`<div class="card"><b>${lang==='ar'?x.nameAr:x.nameEn}</b><p class="muted">${x.descAr}</p><p>📍 ${x.landmarks}</p><p>🗓️ ${x.season}</p></div>`).join(''); }
-async function loadCourses(){ const lv=$('levelFilter').value; const cs = await api('/api/courses'); const list = lv?cs.filter(c=>c.level==lv):cs; $('courseList').innerHTML = list.map(c=>`<div class="card"><span class="badge">${c.code} — المستوى ${c.level}</span><h3>${c.titleAr}</h3><p class="muted">${c.descAr}</p><button class="btn" onclick="openCourse('${c.code}')">فتح المقرر</button><div>${dlBtns(c.code)}</div></div>`).join(''); }
-async function openCourse(code){ const c = await api('/api/courses/'+code); const d=$('courseDetail'); d.classList.remove('hidden'); d.innerHTML=`<h2>${c.titleAr} (${c.code})</h2><p>${c.descAr}</p><p>الأسئلة: ${c.questionCount} سؤالاً</p>${dlBtns(code)} <a class="btn gold" href="/book/${code}/print" target="_blank">🖨️ عرض للطباعة / PDF من المتصفح</a><button class="btn" onclick="startQuiz('${code}')">ابدئي الاختبار التفاعلي</button><div id="quizBox"></div>` + c.units.map((u,i)=>`<h3>الوحدة ${i+1}: ${u.titleAr}</h3>`+u.lessons.map(l=>`<p><b>${l.titleAr}:</b> ${l.bodyAr}<br><i>مثال:</i> ${l.exampleAr}<br><i>نشاط:</i> ${l.activityAr}</p>`).join('')).join(''); d.scrollIntoView(); }
-async function startQuiz(code){ const qs = await api(`/api/courses/${code}/questions?limit=10`); const box=$('quizBox'); let score=0; box.innerHTML = qs.map((q,i)=>`<div class="card"><p><b>${i+1}.</b> ${q.question}</p>${q.options.map((o,j)=>`<button class="btn" onclick="this.parentElement.querySelectorAll('button').forEach(b=>b.disabled=true);this.style.background='${j===q.correct?'green':'red'}';this.parentElement.insertAdjacentHTML('beforeend','<p>${q.explanation}</p>')">${o}</button>`).join('')}</div>`).join(''); }
-async function loadLibrary(){ const b = await api('/api/library'); $('libraryList').innerHTML = b.map(x=>`<div class="card"><b>${x.titleAr}</b><p class="muted">${x.descAr}</p><div>${dlBtns(x.code)}</div></div>`).join(''); }
-async function loadNews(){ const n = await api('/api/news'); $('newsList').innerHTML = n.map(x=>`<div class="card"><b>${x.titleAr}</b><p>${x.bodyAr}</p></div>`).join(''); }
-async function loadTraining(){ const t = await api('/api/training'); $('trainingList').innerHTML = t.map(x=>`<div class="card"><b>${x.titleAr}</b><p>${x.descAr}</p><span class="badge">${x.hours} ساعة</span></div>`).join(''); }
-async function loadPlaces(){ const [d,s] = await Promise.all([api('/api/destinations'), api('/api/stats')]); $('placesList').innerHTML = d.map(x=>`<div class="card"><b>${x.nameAr}</b><p>${x.descAr}</p><p>📍 ${x.landmarks}</p><p>🗓️ موسم الزيارة: ${x.season}</p><p>🎯 ${x.activities}</p><p>🎬 فيديو الوجهة: ابحثي في يوتيوب عن «${x.videoQuery}»</p></div>`).join('') + s.map(x=>`<div class="card"><div class="stat">${x.value} ${x.unit}</div><div>${x.labelAr}</div></div>`).join(''); const vs=$('visionStats'); if(vs) vs.innerHTML = s.slice(0,6).map(x=>`<div class="card"><div class="stat">${x.value} ${x.unit}</div><div>${x.labelAr}</div></div>`).join(''); }
-async function loadMedia(){ const [p,v] = await Promise.all([api('/api/photos'), api('/api/videos')]); $('photoGrid').innerHTML = p.slice(0,60).map(x=>`<div><img loading="lazy" src="${x.url}" alt="${x.captionAr}" onerror="this.src='https://picsum.photos/seed/taiba${x.id}/900/600'"><p class="muted">${x.captionAr}</p></div>`).join(''); $('videoList').innerHTML = v.map(x=>`<div class="card"><b>🎬 ${x.titleAr}</b> — <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(x.query)}" target="_blank">مشاهدة على يوتيوب (بحث: ${x.query})</a><p class="muted">استبدلي رابط البحث بمعرّف فيديو يوتيوب ثابت من لوحة التحكم عند توفره.</p></div>`).join(''); }
-async function sendMsg(){ try{ await api('/api/contact',{method:'POST',body:JSON.stringify({name:$('mName').value,email:$('mEmail').value,message:$('mMsg').value})}); $('mOk').textContent='تم إرسال رسالتك بنجاح.'; }catch(e){ $('mOk').textContent=e.message; } }
-async function login(){ try{ const d = await api('/api/login',{method:'POST',body:JSON.stringify({username:$('uName').value,password:$('uPass').value})}); token=d.token; localStorage.setItem('taibaToken',token); me=d.user; afterAuth(); }catch(e){ $('authMsg').textContent='بيانات الدخول غير صحيحة.'; } }
-async function register(){ try{ const d = await api('/api/register',{method:'POST',body:JSON.stringify({username:$('uName').value,password:$('uPass').value,name:$('uFull').value,level:$('uLevel').value})}); token=d.token; localStorage.setItem('taibaToken',token); me=d.user; afterAuth(); }catch(e){ $('authMsg').textContent=e.message==='username-taken'?'اسم المستخدم محجوز، اختاري اسماً آخر.':e.message; } }
-function logout(){ token=''; me=null; localStorage.removeItem('taibaToken'); $('myBox').classList.add('hidden'); $('authBox').classList.remove('hidden'); $('adminPanel').classList.add('hidden'); $('userBox').textContent=''; }
-async function changePw(){ try{ await api('/api/change-password',{method:'POST',body:JSON.stringify({current:$('cpCur').value,next:$('cpNew').value})}); $('cpMsg').textContent='تم تغيير كلمة المرور.'; }catch(e){ $('cpMsg').textContent=e.message; } }
-function afterAuth(){ $('authBox').classList.add('hidden'); $('myBox').classList.remove('hidden'); $('myInfo').textContent = `مرحباً ${me.name} — الدور: ${me.role}${me.level?' — المستوى '+me.level:''}`; $('userBox').textContent = me.name; if(['admin','academic','trainer'].includes(me.role)) $('adminPanel').classList.remove('hidden'); loadCourses(); }
-async function loadUsers(){ try{ const u = await api('/api/admin/users'); $('adminOut').innerHTML = '<h3>حسابات الدخول</h3>' + u.map(x=>`<div class="card">${x.username} — ${x.name} (${x.role}) <input id="rp-${x.username}" type="password" placeholder="كلمة مرور جديدة"><button class="btn" onclick="resetPw('${x.username}')">🔑 تعيين كلمة مرور جديدة</button></div>`).join(''); }catch(e){ $('adminOut').textContent=e.message; } }
-async function resetPw(un){ try{ await api('/api/admin/reset-password',{method:'POST',body:JSON.stringify({username:un,next:document.getElementById('rp-'+un).value})}); alert('تم تعيين كلمة المرور الجديدة لـ '+un); }catch(e){ alert(e.message); } }
-async function loadMsgs(){ try{ const m = await api('/api/admin/messages'); $('adminOut').innerHTML = '<h3>رسائل التواصل</h3>' + m.map(x=>`<div class="card"><b>${x.name}</b> (${x.email})<p>${x.message}</p></div>`).join(''); }catch(e){ $('adminOut').textContent=e.message; } }
-async function addNews(){ try{ await api('/api/admin/news',{method:'POST',body:JSON.stringify({titleAr:$('nTitle').value,titleEn:'',bodyAr:$('nBody').value})}); alert('تمت إضافة الخبر'); }catch(e){ alert(e.message); } }
-async function importQ(){ try{ const d = await api('/api/admin/questions/import',{method:'POST',body:JSON.stringify({questions:JSON.parse($('impJson').value)})}); $('impMsg').textContent='تم استيراد '+d.imported+' سؤالاً.'; }catch(e){ $('impMsg').textContent=e.message; } }
-(async()=>{ renderTabs(); try{ const s = await api('/api/settings'); $('cEmail').textContent=s.contactEmail||''; $('cPhone').textContent=s.contactPhone||''; $('fEmail').textContent=s.contactEmail||''; }catch(e){} if(token){ try{ me = await api('/api/me'); afterAuth(); }catch(e){ token=''; } } loadHome(); })();
+function show(v){
+  document.querySelectorAll('.view').forEach(s=>s.classList.add('hidden'));
+  const el = $('view-'+v); if(el) el.classList.remove('hidden');
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
+  if(v==='courses') loadCourses();
+  if(v==='library') loadLibrary();
+  if(v==='news') loadNews();
+  if(v==='training') loadTraining();
+  if(v==='places') loadPlaces();
+  if(v==='vision') loadVision();
+  if(v==='media') loadMedia();
+  window.scrollTo(0,0);
+}
+function showCoursesLevel(lv){ $('levelFilter').value = String(lv); show('courses'); }
+function toggleLang(){
+  lang = lang==='ar' ? 'en' : 'ar';
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang==='ar' ? 'rtl' : 'ltr';
+  $('langBtn').textContent = lang==='ar' ? 'English' : 'العربية';
+  renderTabs(); show('home'); loadHome();
+}
+
+/* ---------- downloads (login-gated) ---------- */
+function dlBtns(code){
+  if(!me) return `<button class="btn" onclick="show('login')">🔒 تسجيل الدخول للتنزيل</button>`;
+  let h = `<button class="btn" onclick="download('${esc(code)}','pdf')">📄 PDF</button>`;
+  if(isStaff()){
+    h += `<button class="btn gold" onclick="download('${esc(code)}','doc')">📝 Word</button>`;
+    h += `<button class="btn gold" onclick="download('${esc(code)}','pptx')">📊 PowerPoint</button>`;
+  } else {
+    h += `<span class="muted">Word و PowerPoint للمدربة والأكاديمي والإدارة فقط</span>`;
+  }
+  return h;
+}
+async function download(code, fmt){
+  try{
+    const r = await fetch(`/api/download/${code}/${fmt}`, {headers:{Authorization:'Bearer '+token}});
+    if(!r.ok){ const e = await r.json().catch(()=>({})); toast(e.error || ('خطأ '+r.status)); return; }
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = code + '.' + (fmt==='doc' ? 'doc' : fmt);
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    toast('تم تنزيل الكتاب ✅');
+  }catch(e){ toast(e.message); }
+}
+
+/* ---------- home ---------- */
+async function loadHome(){
+  try{
+    const [s,d] = await Promise.all([api('/api/stats'), api('/api/destinations')]);
+    $('stats').innerHTML = s.slice(0,6).map(x=>`<div class="card stat-card"><div class="stat-num">${esc(x.value)} ${esc(x.unit)}</div><div>${esc(lang==='ar'?x.labelAr:x.labelEn)}</div></div>`).join('');
+    $('destHome').innerHTML = d.map(x=>`<div class="card dest-card"><h3>📍 ${esc(lang==='ar'?x.nameAr:x.nameEn)}</h3><p class="muted">${esc(x.descAr)}</p><p>🗓️ موسم الزيارة: ${esc(x.season)}</p><button class="btn small" onclick="show('places')">عرض التفاصيل والفيديو</button></div>`).join('');
+  }catch(e){ $('stats').innerHTML = '<p class="muted">تعذر تحميل الأرقام — أعيدي تحميل الصفحة.</p>'; }
+}
+
+/* ---------- courses ---------- */
+async function loadCourses(){
+  try{
+    if(!allCourses.length) allCourses = await api('/api/courses');
+    const lv = $('levelFilter').value;
+    const q = ($('courseSearch').value || '').trim();
+    const list = allCourses.filter(c => (!lv || c.level == lv) && (!q || (c.titleAr||'').includes(q) || (c.code||'').toLowerCase().includes(q.toLowerCase())));
+    $('courseList').innerHTML = list.length ? list.map(c=>`
+      <div class="card course-card">
+        <div><span class="level-chip l${c.level}">${c.level}</span> <span class="badge">${esc(c.code)}</span> <span class="badge lvl">المستوى ${c.level}</span></div>
+        <h3>${esc(c.titleAr)}</h3><p class="muted">${esc(c.descAr)}</p>
+        <div><button class="btn" onclick="openCourse('${esc(c.code)}')">📖 فتح المقرر</button></div>
+        <div>${dlBtns(c.code)}</div>
+      </div>`).join('') : '<p class="muted">لا توجد مقررات مطابقة.</p>';
+  }catch(e){ $('courseList').innerHTML = '<p class="muted">تعذر تحميل المقررات.</p>'; }
+}
+async function openCourse(code){
+  const d = $('courseDetail'); d.classList.remove('hidden');
+  d.innerHTML = '<p class="muted">جارٍ تحميل المقرر…</p>';
+  try{
+    const c = await api('/api/courses/'+code);
+    const totalLessons = c.units.reduce((n,u)=>n+(u.lessons?u.lessons.length:0),0);
+    d.innerHTML = `
+      <h2 class="section-title">📖 ${esc(c.titleAr)} <span class="badge">${esc(c.code)} — المستوى ${c.level}</span></h2>
+      <p class="lead">${esc(c.descAr)}</p>
+      <p><span class="badge lvl">5 وحدات</span> <span class="badge lvl">${totalLessons} درساً</span> <span class="badge">بنك الأسئلة: ${c.questionCount} سؤالاً</span></p>
+      <div>${dlBtns(code)} <a class="btn gold" href="/book/${code}/print" target="_blank">🖨️ عرض للطباعة / PDF من المتصفح</a>
+      <button class="btn pink" onclick="startQuiz('${esc(c.code)}')">🧠 ابدئي الاختبار التفاعلي (10 أسئلة)</button></div>
+      <div id="quizBox"></div>
+      <h3 style="margin-top:18px">وحدات المقرر ودروسه</h3>
+      ${c.units.map((u,i)=>`<div class="unit"><h4>الوحدة ${i+1}: ${esc(u.titleAr)}</h4>
+        ${(u.lessons||[]).map(l=>`<div class="lesson"><b>📘 ${esc(l.titleAr)}</b><p>${esc(l.bodyAr)}</p>
+          ${l.exampleAr?`<p><i>💡 مثال:</i> ${esc(l.exampleAr)}</p>`:''}
+          ${l.activityAr?`<p><i>✏️ نشاط:</i> ${esc(l.activityAr)}</p>`:''}</div>`).join('')}
+      </div>`).join('')}`;
+    d.scrollIntoView({behavior:'smooth'});
+  }catch(e){ d.innerHTML = '<p class="muted">تعذر فتح المقرر.</p>'; }
+}
+let quizScore = 0, quizTotal = 0, quizAnswered = 0;
+async function startQuiz(code){
+  const box = $('quizBox'); box.innerHTML = '<p class="muted">جارٍ تحميل الأسئلة…</p>';
+  quizScore = 0; quizAnswered = 0;
+  try{
+    const qs = await api(`/api/courses/${code}/questions?limit=10`);
+    quizTotal = qs.length;
+    box.innerHTML = `<h3>🧠 الاختبار التفاعلي — ${qs.length} أسئلة</h3>` + qs.map((q,i)=>`
+      <div class="quiz-q" data-answered="0"><p><b>${i+1}.</b> ${esc(q.question)}</p>
+      ${q.options.map((o,j)=>`<button class="opt" onclick="answerQuiz(this, ${j}, ${q.correct}, '${esc(q.explanation||'')}')">${esc(o)}</button>`).join('')}
+      <div class="q-exp muted"></div></div>`).join('') + `<div id="quizScore"></div>`;
+  }catch(e){ box.innerHTML = '<p class="muted">سجّلي الدخول أولاً لبدء الاختبار.</p>'; }
+}
+function answerQuiz(btn, chosen, correct, explanation){
+  const card = btn.closest('.quiz-q');
+  if(card.dataset.answered === '1') return;
+  card.dataset.answered = '1'; quizAnswered++;
+  const opts = card.querySelectorAll('.opt');
+  opts.forEach((o,j)=>{ o.disabled = true; if(j===correct) o.classList.add('correct'); });
+  if(chosen === correct){ quizScore++; } else { btn.classList.add('wrong'); }
+  card.querySelector('.q-exp').textContent = '💡 ' + explanation;
+  if(quizAnswered === quizTotal){
+    const s = $('quizScore');
+    if(s) s.innerHTML = `<div class="quiz-score">🎉 نتيجتك: ${quizScore} من ${quizTotal} — ${quizScore===quizTotal?'ممتازة! 🌟':quizScore>=quizTotal/2?'جيدة جداً، واصلي! 💪':'أعيدي قراءة الوحدات وحاولي مجدداً 📚'}</div>`;
+  }
+}
+
+/* ---------- library ---------- */
+async function loadLibrary(){
+  try{
+    const [books, dests] = await Promise.all([api('/api/library'), api('/api/destinations')]);
+    const courseBooks = books.filter(b=>b.kind==='course');
+    const bookingBooks = books.filter(b=>b.kind==='booking');
+    $('libraryList').innerHTML = courseBooks.map(b=>`
+      <div class="card course-card"><span class="badge">📕 كتاب مقرر</span><h3>${esc(b.titleAr)}</h3>
+      <p class="muted">${esc(b.descAr)}</p><div>${dlBtns(b.code)}</div></div>`).join('');
+    $('bookingList').innerHTML = bookingBooks.map(b=>`
+      <div class="card course-card"><span class="badge">💻 نظام حجوزات</span><h3>${esc(b.titleAr)}</h3>
+      <p class="muted">${esc(b.descAr)}</p><div>${dlBtns(b.code)}</div></div>`).join('');
+    $('destBooks').innerHTML = dests.map(x=>`
+      <div class="card course-card"><span class="badge">🗺️ كتاب وجهة</span><h3>كتاب ${esc(x.nameAr)}</h3>
+      <p class="muted">${esc(x.descAr)}</p>
+      <p>📍 ${esc(x.landmarks)}</p>
+      <div><button class="btn" onclick="show('places')">📖 قراءة التفاصيل والفيديو</button></div></div>`).join('');
+  }catch(e){ $('libraryList').innerHTML = '<p class="muted">تعذر تحميل المكتبة.</p>'; }
+}
+
+/* ---------- news / training ---------- */
+async function loadNews(){
+  try{
+    const n = await api('/api/news');
+    $('newsList').innerHTML = n.map(x=>`<div class="news-item"><h3>${esc(x.titleAr)}</h3><p>${esc(x.bodyAr)}</p><p class="muted">${esc((x.createdAt||'').slice(0,10))}</p></div>`).join('') || '<p class="muted">لا توجد أخبار بعد.</p>';
+  }catch(e){ $('newsList').innerHTML = '<p class="muted">تعذر تحميل الأخبار.</p>'; }
+}
+async function loadTraining(){
+  try{
+    const t = await api('/api/training');
+    $('trainingList').innerHTML = t.map(x=>`<div class="card course-card"><span class="badge">⏱️ ${x.hours} ساعة</span><h3>${esc(x.titleAr)}</h3><p class="muted">${esc(x.descAr)}</p><button class="btn small" onclick="show('contact')">سجّلي اهتمامك</button></div>`).join('');
+  }catch(e){ $('trainingList').innerHTML = '<p class="muted">تعذر تحميل الدورات.</p>'; }
+}
+
+/* ---------- places & vision ---------- */
+async function loadPlaces(){
+  try{
+    const [d,s] = await Promise.all([api('/api/destinations'), api('/api/stats')]);
+    $('placesStats').innerHTML = s.map(x=>`<div class="card stat-card"><div class="stat-num">${esc(x.value)} ${esc(x.unit)}</div><div>${esc(x.labelAr)}</div></div>`).join('');
+    $('placesList').innerHTML = d.map(x=>`
+      <div class="card dest-card"><h3>📍 ${esc(x.nameAr)}</h3><p>${esc(x.descAr)}</p>
+      <p><b>المعالم:</b> ${esc(x.landmarks)}</p>
+      <p><b>🗓️ موسم الزيارة:</b> ${esc(x.season)}</p>
+      <p><b>🎯 الأنشطة:</b> ${esc(x.activities)}</p>
+      <a class="video-link" href="https://www.youtube.com/results?search_query=${encodeURIComponent(x.videoQuery)}" target="_blank" rel="noopener">🎬 فيديو ${esc(x.nameAr)} على يوتيوب ↗</a></div>`).join('');
+  }catch(e){ $('placesList').innerHTML = '<p class="muted">تعذر تحميل الوجهات.</p>'; }
+}
+async function loadVision(){
+  try{
+    const s = await api('/api/stats');
+    $('visionStats').innerHTML = s.slice(0,6).map(x=>`<div class="card stat-card vision-target"><div class="stat-num">${esc(x.value)} ${esc(x.unit)}</div><div>${esc(x.labelAr)}</div></div>`).join('');
+  }catch(e){ /* stats optional here */ }
+}
+
+/* ---------- media ---------- */
+async function loadMedia(){
+  try{
+    const [p,v] = await Promise.all([api('/api/photos'), api('/api/videos')]);
+    allPhotos = p;
+    const cats = [...new Set(p.map(x=>x.category))];
+    $('photoCat').innerHTML = '<option value="">كل الفئات</option>' + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    $('photoCount').textContent = p.length + ' صورة';
+    renderPhotos();
+    $('videoList').innerHTML = v.map((x,i)=>`
+      <div class="card video-card"><div class="video-thumb">🎬</div><h3>${esc(x.titleAr)}</h3>
+      <p class="muted">فيديو ${i+1} من ${v.length}</p>
+      <a class="btn" href="https://www.youtube.com/results?search_query=${encodeURIComponent(x.query)}" target="_blank" rel="noopener">▶️ مشاهدة على يوتيوب</a></div>`).join('');
+  }catch(e){ $('photoGrid').innerHTML = '<p class="muted">تعذر تحميل المكتبة المرئية.</p>'; }
+}
+function renderPhotos(){
+  const cat = $('photoCat') ? $('photoCat').value : '';
+  const list = cat ? allPhotos.filter(p=>p.category===cat) : allPhotos;
+  $('photoGrid').innerHTML = list.map(x=>`<figure><img loading="lazy" src="${esc(x.url)}" alt="${esc(x.captionAr)}" onerror="this.src='https://picsum.photos/seed/taiba${x.id}/900/600'"><figcaption>${esc(x.captionAr)}</figcaption></figure>`).join('');
+  if($('photoCount')) $('photoCount').textContent = list.length + ' صورة';
+}
+
+/* ---------- contact ---------- */
+async function sendMsg(){
+  if(!$('mName').value.trim() || !$('mMsg').value.trim()){ $('mOk').textContent = 'اكتبي الاسم والرسالة أولاً.'; return; }
+  try{
+    await api('/api/contact',{method:'POST',body:JSON.stringify({name:$('mName').value,email:$('mEmail').value,message:$('mMsg').value})});
+    $('mOk').textContent = '✅ تم إرسال رسالتك بنجاح — ستصل إلى إدارة المعهد.';
+    $('mName').value = ''; $('mEmail').value = ''; $('mMsg').value = '';
+  }catch(e){ $('mOk').textContent = 'تعذر الإرسال: ' + e.message; }
+}
+
+/* ---------- auth ---------- */
+async function login(){
+  try{
+    const d = await api('/api/login',{method:'POST',body:JSON.stringify({username:$('uName').value,password:$('uPass').value})});
+    token = d.token; localStorage.setItem('taibaToken',token); me = d.user; afterAuth(); toast('مرحباً ' + me.name + ' ✅');
+  }catch(e){ $('authMsg').textContent = 'بيانات الدخول غير صحيحة — تحققي من اسم المستخدم وكلمة المرور.'; }
+}
+async function register(){
+  if(($('uPass').value||'').length < 6){ $('authMsg').textContent = 'كلمة المرور 6 أحرف فأكثر.'; return; }
+  try{
+    const d = await api('/api/register',{method:'POST',body:JSON.stringify({username:$('uName').value,password:$('uPass').value,name:$('uFull').value,level:$('uLevel').value})});
+    token = d.token; localStorage.setItem('taibaToken',token); me = d.user; afterAuth(); toast('تم إنشاء حسابك بنجاح 🎉');
+  }catch(e){ $('authMsg').textContent = e.message==='username-taken' ? 'اسم المستخدم محجوز، اختاري اسماً آخر.' : e.message; }
+}
+function logout(){
+  token = ''; me = null; localStorage.removeItem('taibaToken');
+  $('myBox').classList.add('hidden'); $('authBox').classList.remove('hidden');
+  $('adminPanel').classList.add('hidden'); $('adminBar').classList.remove('show');
+  $('userBox').classList.add('hidden'); $('userBox').textContent = '';
+  toast('تم تسجيل الخروج');
+}
+async function changePw(){
+  try{
+    await api('/api/change-password',{method:'POST',body:JSON.stringify({current:$('cpCur').value,next:$('cpNew').value})});
+    $('cpMsg').textContent = '✅ تم تغيير كلمة المرور.'; $('cpCur').value = ''; $('cpNew').value = '';
+  }catch(e){ $('cpMsg').textContent = 'تعذر التغيير: ' + e.message; }
+}
+function afterAuth(){
+  $('authBox').classList.add('hidden'); $('myBox').classList.remove('hidden');
+  const roleName = {admin:'الإدارة',academic:'المدير الأكاديمي',trainer:'المدربة',trainee:'متدربة'}[me.role] || me.role;
+  $('myInfo').textContent = `مرحباً ${me.name} — الدور: ${roleName}${me.level ? ' — المستوى ' + me.level : ''}`;
+  $('userBox').textContent = '👤 ' + me.name; $('userBox').classList.remove('hidden');
+  if(isStaff()){
+    $('adminPanel').classList.remove('hidden');
+    $('adminBar').classList.add('show');
+    $('adminBarText').textContent = `لوحة التحكم متاحة لك — سجّلتِ كـ ${roleName} (${me.username})`;
+  } else {
+    $('adminPanel').classList.add('hidden'); $('adminBar').classList.remove('show');
+  }
+  loadCourses();
+}
+function openAdmin(){ $('adminPanel').scrollIntoView({behavior:'smooth'}); adminTab('users'); }
+
+/* ---------- admin panel ---------- */
+function adminTab(name){
+  ['users','msgs','news','course','import'].forEach(n=>{
+    const pane = $('admin-'+n), btn = $('at-'+n);
+    if(pane) pane.classList.toggle('hidden', n!==name);
+    if(btn) btn.classList.toggle('active', n===name);
+  });
+  if(name==='users') loadUsers();
+  if(name==='msgs') loadMsgs();
+}
+async function loadUsers(){
+  try{
+    const u = await api('/api/admin/users');
+    $('adminOut').innerHTML = '<h3>👥 حسابات الدخول (' + u.length + ')</h3>' + u.map(x=>`
+      <div class="user-row"><div class="who"><b>${esc(x.username)}</b> — ${esc(x.name)} <span class="badge">${esc(x.role)}</span>${x.level ? ' <span class="badge lvl">المستوى '+x.level+'</span>' : ''}</div>
+      <input id="rp-${esc(x.username)}" type="password" placeholder="كلمة مرور جديدة">
+      <button class="btn small" onclick="resetPw('${esc(x.username)}')">🔑 تعيين كلمة مرور جديدة</button></div>`).join('');
+  }catch(e){ $('adminOut').textContent = 'تعذر تحميل الحسابات: ' + e.message; }
+}
+async function resetPw(un){
+  const next = document.getElementById('rp-'+un).value;
+  if(!next || next.length < 6){ alert('كلمة المرور الجديدة 6 أحرف فأكثر.'); return; }
+  try{
+    await api('/api/admin/reset-password',{method:'POST',body:JSON.stringify({username:un,next})});
+    toast('تم تعيين كلمة المرور الجديدة لـ ' + un + ' ✅');
+  }catch(e){ alert('تعذر التعيين: ' + e.message); }
+}
+async function loadMsgs(){
+  try{
+    const m = await api('/api/admin/messages');
+    $('adminMsgs').innerHTML = m.length ? m.map(x=>`<div class="msg-row"><b>${esc(x.name)}</b> (${esc(x.email||'—')}) <span class="muted">${esc((x.createdAt||'').slice(0,10))}</span><p>${esc(x.message)}</p></div>`).join('') : '<p class="muted">لا توجد رسائل بعد.</p>';
+  }catch(e){ $('adminMsgs').textContent = 'تعذر تحميل الرسائل: ' + e.message; }
+}
+async function addNews(){
+  if(!$('nTitle').value.trim()){ $('newsMsg').textContent = 'اكتبي عنوان الخبر.'; return; }
+  try{
+    await api('/api/admin/news',{method:'POST',body:JSON.stringify({titleAr:$('nTitle').value,titleEn:'',bodyAr:$('nBody').value})});
+    $('newsMsg').textContent = '✅ تمت إضافة الخبر.'; $('nTitle').value = ''; $('nBody').value = ''; loadNews();
+  }catch(e){ $('newsMsg').textContent = 'تعذر الإضافة: ' + e.message; }
+}
+async function addCourse(){
+  if(!$('cCode').value.trim() || !$('cTitle').value.trim()){ $('courseMsg').textContent = 'اكتبي رمز المقرر وعنوانه.'; return; }
+  try{
+    await api('/api/admin/courses',{method:'POST',body:JSON.stringify({code:$('cCode').value.trim(),level:parseInt($('cLevel').value,10),titleAr:$('cTitle').value,titleEn:'',descAr:$('cDesc').value,descEn:''})});
+    $('courseMsg').textContent = '✅ تمت إضافة / تحديث المقرر.'; allCourses = []; loadCourses();
+  }catch(e){ $('courseMsg').textContent = 'تعذر الإضافة: ' + e.message; }
+}
+async function importQ(){
+  let rows;
+  try{ rows = JSON.parse($('impJson').value); }catch(e){ $('impMsg').textContent = 'صيغة JSON غير صحيحة.'; return; }
+  try{
+    const d = await api('/api/admin/questions/import',{method:'POST',body:JSON.stringify({questions:rows})});
+    $('impMsg').textContent = '✅ تم استيراد ' + d.imported + ' سؤالاً.';
+  }catch(e){ $('impMsg').textContent = 'تعذر الاستيراد: ' + e.message; }
+}
+
+/* ---------- boot ---------- */
+(async()=>{
+  renderTabs(); show('home');
+  try{
+    const s = await api('/api/settings');
+    if(s.contactEmail){ $('cEmail').textContent = s.contactEmail; $('fEmail').textContent = s.contactEmail; }
+    if(s.contactPhone){ $('cPhone').textContent = s.contactPhone; }
+  }catch(e){ /* defaults in HTML */ }
+  if(token){ try{ me = await api('/api/me'); afterAuth(); }catch(e){ token = ''; localStorage.removeItem('taibaToken'); } }
+  loadHome();
+})();
