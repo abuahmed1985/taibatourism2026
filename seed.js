@@ -1,12 +1,23 @@
 // Seed data for the Taiba Tourism & Hospitality diploma (Render package).
-// HONEST NOTE: the 16 courses / units / destinations / stats below are real
-// structured content. The 208 questions per course are PROGRAMMATICALLY
-// GENERATED from each unit's topic (see generateQuestions) as a working
-// scaffold — they are NOT the original hand-written 3,328-question bank.
-// The admin panel can import the real bank via CSV/JSON (see samples/).
+// REAL CONTENT: when data/content-full.json + data/questions-full.json exist
+// (exported from the live full site via its getcatalog action — 16 real
+// courses, 168 real lessons with full explanations/examples/activities and
+// the real 3,328-question bank, 208 per course), they REPLACE the scaffold
+// below. The generated lessons/questions are only a fallback when those
+// files are absent (e.g. a fresh clone without the data/ folder).
 'use strict';
+const fs = require('fs');
+const path = require('path');
 
-const COURSES = [
+let REAL_CONTENT = null;
+try { REAL_CONTENT = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'content-full.json'), 'utf8')); } catch (e) { REAL_CONTENT = null; }
+if (!REAL_CONTENT) { try { REAL_CONTENT = require('./content-full.js'); } catch (e) { REAL_CONTENT = null; } }
+const LESSONS_BY_UNIT = {};
+if (Array.isArray(REAL_CONTENT)) {
+  for (const c of REAL_CONTENT) for (const u of c.units || []) LESSONS_BY_UNIT[u.titleAr] = u.lessons || [];
+}
+
+let COURSES = [
   { code: 'TRM-101', level: 1, titleAr: 'مدخل إلى السياحة والفندقة', titleEn: 'Introduction to Tourism & Hospitality',
     descAr: 'مفاهيم السياحة والفندقة وأنواعها وأهميتها الاقتصادية والاجتماعية في المملكة.', descEn: 'Concepts of tourism and hospitality, types and economic importance in Saudi Arabia.',
     units: ['مفهوم السياحة وأنواعها', 'تاريخ السياحة وتطورها', 'قطاع الفندقة والضيافة', 'السياحة في المملكة العربية السعودية', 'أخلاقيات المهنة والسلوك المهني'] },
@@ -56,6 +67,16 @@ const COURSES = [
     descAr: 'التدريب الميداني في المنشآت السياحية وإعداد مشروع التخرج.', descEn: 'Field training in tourism facilities and graduation project.',
     units: ['التدريب التعاوني: الأهداف والأنظمة', 'مهارات بيئة العمل', 'إعداد تقرير التدريب', 'مشروع التخرج: الفكرة والخطة', 'عرض مشروع التخرج ومناقشته'] },
 ];
+
+// Real content replaces the scaffold above when data/content-full.json exists:
+// real titles, descriptions and unit titles (57 units, 168 lessons).
+if (Array.isArray(REAL_CONTENT) && REAL_CONTENT.length === 16) {
+  COURSES = REAL_CONTENT.map(c => ({
+    code: c.code, level: c.level, titleAr: c.titleAr, titleEn: c.titleEn,
+    descAr: c.descAr, descEn: c.descEn,
+    units: (c.units || []).map(u => u.titleAr),
+  }));
+}
 
 const BOOKING_BOOKS = [
   { code: 'BKG-OPERA', titleAr: 'كتاب نظام أوبرا Opera للحجوزات الفندقية', titleEn: 'Opera Reservation System',
@@ -173,6 +194,10 @@ function generateQuestions(course) {
 }
 
 function generateLessons(unitTitle) {
+  // Real lessons first: full content/example/activity exported from the
+  // live site. Falls back to the generic scaffold only when the real
+  // content file is absent.
+  if (LESSONS_BY_UNIT[unitTitle]) return LESSONS_BY_UNIT[unitTitle];
   return [
     { titleAr: 'مفهوم ' + unitTitle, bodyAr: 'شرح مفصل لمفهوم ' + unitTitle + ' وأهميته في السياحة والفندقة، مع توضيح المصطلحات الأساسية والعلاقة بالممارسة المهنية اليومية.', exampleAr: 'مثال تطبيقي: موقف حقيقي من فندق أو وجهة سياحية يوضح تطبيق ' + unitTitle + ' خطوة بخطوة.', activityAr: 'نشاط: ناقشي مع زميلاتك موقفاً مشابهاً واقترحي الحل المهني المناسب.' },
     { titleAr: 'تطبيقات ' + unitTitle, bodyAr: 'التطبيقات العملية لـ' + unitTitle + ' في المنشآت السياحية والفندقية، والإجراءات المعتمدة والأدوات المستخدمة.', exampleAr: 'مثال تطبيقي: تنفيذ إجراء من إجراءات ' + unitTitle + ' في سيناريو محاكاة داخل القاعة.', activityAr: 'نشاط: طبقي الإجراء في مجموعة صغيرة ثم قيمي أداء زميلاتك.' },
@@ -180,4 +205,4 @@ function generateLessons(unitTitle) {
   ];
 }
 
-module.exports = { COURSES, BOOKING_BOOKS, DESTINATIONS, STATS, NEWS_SEED, TRAINING_SEED, VIDEOS_SEED, generateQuestions, generateLessons };
+module.exports = { COURSES, BOOKING_BOOKS, DESTINATIONS, STATS, NEWS_SEED, TRAINING_SEED, VIDEOS_SEED, generateQuestions, generateLessons, REAL_CONTENT_LOADED: Array.isArray(REAL_CONTENT) && REAL_CONTENT.length === 16 };

@@ -42,10 +42,13 @@ function toggleLang(){
 /* ---------- downloads (login-gated) ---------- */
 function dlBtns(code){
   if(!me) return `<button class="btn" onclick="show('login')">🔒 تسجيل الدخول للتنزيل</button>`;
-  let h = `<button class="btn" onclick="download('${esc(code)}','pdf')">📄 PDF</button>`;
+  let h = `<button class="btn" onclick="download('${esc(code)}','pdf')">📄 الكتاب PDF</button>`;
+  h += `<button class="btn" onclick="download('${esc(code)}','bank-pdf')">📝 بنك الأسئلة PDF</button>`;
   if(isStaff()){
-    h += `<button class="btn gold" onclick="download('${esc(code)}','doc')">📝 Word</button>`;
-    h += `<button class="btn gold" onclick="download('${esc(code)}','pptx')">📊 PowerPoint</button>`;
+    h += `<button class="btn gold" onclick="download('${esc(code)}','doc')">📝 الكتاب Word</button>`;
+    h += `<button class="btn gold" onclick="download('${esc(code)}','pptx')">📊 الكتاب PowerPoint</button>`;
+    h += `<button class="btn gold" onclick="download('${esc(code)}','bank-doc')">📝 بنك الأسئلة Word</button>`;
+    h += `<button class="btn gold" onclick="download('${esc(code)}','bank-pptx')">📊 بنك الأسئلة PowerPoint</button>`;
   } else {
     h += `<span class="muted">Word و PowerPoint للمدربة والأكاديمي والإدارة فقط</span>`;
   }
@@ -58,9 +61,11 @@ async function download(code, fmt){
     const blob = await r.blob();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = code + '.' + (fmt==='doc' ? 'doc' : fmt);
+    const isBank = fmt.startsWith('bank-');
+    const ext = fmt.replace('bank-','');
+    a.download = code + (isBank ? '-bank' : '') + '.' + (ext==='doc' ? 'doc' : ext);
     a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
-    toast('تم تنزيل الكتاب ✅');
+    toast('تم تنزيل الملف ✅');
   }catch(e){ toast(e.message); }
 }
 
