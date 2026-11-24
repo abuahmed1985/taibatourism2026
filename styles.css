@@ -1,0 +1,23 @@
+:root{--sky:#e0f7fa;--cyan:#00acc1;--teal:#00838f;--gold:#ffd54f;--pink:#f8bbd0;--ink:#123}
+*{box-sizing:border-box}body{margin:0;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:linear-gradient(180deg,#e0f7fa,#f3e5f5 60%,#fffde7);color:var(--ink);min-height:100vh}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(90deg,#b2ebf2,#80deea,#f8bbd0);box-shadow:0 4px 18px rgba(0,0,0,.12);padding:10px 16px}
+.brand{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand h1{margin:0;font-size:22px;color:#006064}.brand p{margin:0;color:#555}
+nav{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+nav button{border:0;border-radius:999px;padding:9px 14px;background:#fff;color:#006064;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+nav button.active{background:#006064;color:#fff}
+main{max-width:1200px;margin:0 auto;padding:18px}
+.card{background:#fff;border-radius:18px;padding:18px;margin:12px 0;box-shadow:0 4px 16px rgba(0,132,143,.12);border:1px solid #b2ebf2}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.btn{display:inline-block;border:0;border-radius:999px;padding:10px 16px;background:linear-gradient(90deg,#00acc1,#00838f);color:#fff;font-weight:700;cursor:pointer;margin:4px}
+.btn.gold{background:linear-gradient(90deg,#ffd54f,#ffb300);color:#4e342e}.btn:disabled{opacity:.5}
+input,select,textarea{width:100%;padding:10px;border:1px solid #80deea;border-radius:10px;margin:6px 0;font-size:15px}
+.badge{display:inline-block;background:#fff8e1;border:1px solid var(--gold);border-radius:999px;padding:3px 10px;font-size:13px}
+.pearl{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#e1bee7 45%,#80deea 80%);box-shadow:0 0 30px #ffd54f,0 0 60px #80deea;animation:float 4s ease-in-out infinite;margin:10px auto}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.shoot{position:relative;height:40px;overflow:hidden}.shoot i{position:absolute;width:60px;height:2px;background:linear-gradient(90deg,transparent,#ffd54f);animation:shoot 2.5s linear infinite}
+@keyframes shoot{from{left:-80px;top:10px}to{left:100%;top:30px}}
+.hidden{display:none!important}.muted{color:#666}.stat{font-size:28px;font-weight:800;color:#00838f}
+footer{text-align:center;color:#666;padding:20px}
+img{max-width:100%;border-radius:12px}
+@media(max-width:640px){.brand h1{font-size:18px}}

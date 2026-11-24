@@ -1,0 +1,28 @@
+services:
+  # Web service — free tier. No build command needed (no native deps).
+  - type: web
+    name: taiba-tourism-diploma
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    # Render sets PORT automatically. DB_PATH points at the persistent disk.
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /var/data/taiba.db
+      # Set these three in the Render dashboard (Environment tab) BEFORE first deploy.
+      # Do NOT commit real passwords anywhere. Leave them empty here on purpose.
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ACADEMIC_PASSWORD
+        sync: false
+      - key: TRAINER_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+    disk:
+      name: taiba-data
+      mountPath: /var/data
+      sizeGB: 1

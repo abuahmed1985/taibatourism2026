@@ -1,0 +1,41 @@
+<!doctype html>
+<html dir="rtl" lang="ar">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>دبلوم السياحة والفندقة — معهد طيبة العالي للتدريب</title>
+<link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header>
+  <div class="brand">
+    <div><h1>🏨 معهد طيبة العالي للتدريب</h1><p>المؤسسة العامة للتدريب التقني والمهني — دبلوم السياحة والفندقة</p></div>
+    <div><div class="pearl" title="لؤلؤة متوهجة"></div><div class="shoot"><i></i></div></div>
+    <div><button class="btn" onclick="toggleLang()" id="langBtn">English</button> <span id="userBox"></span></div>
+  </div>
+  <nav id="tabs"></nav>
+</header>
+<main>
+  <section id="view-home" class="view">
+    <div class="card" style="text-align:center"><div class="pearl"></div><h2>دبلوم السياحة والفندقة</h2><p>16 مقرراً كاملاً في 4 مستويات — كتب 200+ صفحة، بنوك أسئلة، مكتبة صور وفيديوهات، رؤية المملكة 2030</p>
+    <button class="btn" onclick="show('courses')">ابدئي الدراسة</button> <button class="btn gold" onclick="show('login')">دخول المتدربات</button></div>
+    <div class="card"><h3>الأرقام السياحية</h3><div id="stats" class="grid"></div></div>
+    <div class="card"><h3>وجهات المملكة</h3><div id="destHome" class="grid"></div></div>
+  </section>
+  <section id="view-courses" class="view hidden"><div class="card"><h2>المقررات</h2><select id="levelFilter" onchange="loadCourses()"><option value="">كل المستويات</option><option value="1">المستوى الأول</option><option value="2">المستوى الثاني</option><option value="3">المستوى الثالث</option><option value="4">المستوى الرابع</option></select><div id="courseList" class="grid"></div></div>
+  <div class="card hidden" id="courseDetail"></div></section>
+  <section id="view-library" class="view hidden"><div class="card"><h2>المكتبة</h2><div id="libraryList" class="grid"></div></div></section>
+  <section id="view-news" class="view hidden"><div class="card"><h2>الأخبار</h2><div id="newsList"></div></div></section>
+  <section id="view-training" class="view hidden"><div class="card"><h2>الدورات التدريبية</h2><div id="trainingList" class="grid"></div></div></section>
+  <section id="view-places" class="view hidden"><div class="card"><h2>الأرقام والأماكن السياحية</h2><div id="placesList" class="grid"></div></div></section>
+  <section id="view-vision" class="view hidden"><div class="card"><h2>🌟 رؤية المملكة 2030</h2><p>مجتمع حيوي، اقتصاد مزدهر، وطن طموح. مستهدفات الرؤية: 150 مليون زيارة، 10% مساهمة السياحة في الناتج المحلي، 1.6 مليون وظيفة سياحية، إكسبو 2030 وكأس العالم 2034. المشاريع العملاقة: نيوم، البحر الأحمر، العلا، الدرعية، القدية. دور السياحة والفندقة محوري في تحقيق الرؤية، وهذا الدبلوم يؤهل المتدربات لهذه الفرص.</p><div id="visionStats" class="grid"></div></div></section>
+  <section id="view-media" class="view hidden"><div class="card"><h2>المكتبة المرئية</h2><h3>📷 الصور</h3><div id="photoGrid" class="grid"></div><h3>🎬 الفيديوهات</h3><div id="videoList"></div></div></section>
+  <section id="view-contact" class="view hidden"><div class="card"><h2>تواصل معنا</h2><p>📧 <span id="cEmail"></span> &nbsp; 📱 <span id="cPhone"></span></p><input id="mName" placeholder="الاسم"><input id="mEmail" placeholder="البريد الإلكتروني"><textarea id="mMsg" placeholder="رسالتك"></textarea><button class="btn" onclick="sendMsg()">إرسال</button><p id="mOk" class="muted"></p></div></section>
+  <section id="view-login" class="view hidden"><div class="card"><h2>دخول المتدربات — تسجيل ذاتي مفتوح</h2>
+    <div id="authBox"><input id="uName" placeholder="اسم المستخدم"><input id="uPass" type="password" placeholder="كلمة المرور"><input id="uFull" placeholder="الاسم الكامل (للتسجيل فقط)"><select id="uLevel"><option value="1">المستوى الأول</option><option value="2">المستوى الثاني</option><option value="3">المستوى الثالث</option><option value="4">المستوى الرابع</option></select>
+    <button class="btn" onclick="login()">تسجيل الدخول</button> <button class="btn gold" onclick="register()">إنشاء حساب جديد (تسجيل ذاتي)</button><p id="authMsg" class="muted"></p></div>
+    <div id="myBox" class="hidden"><p id="myInfo"></p><h3>تغيير كلمة المرور</h3><input id="cpCur" type="password" placeholder="كلمة المرور الحالية"><input id="cpNew" type="password" placeholder="كلمة المرور الجديدة"><button class="btn" onclick="changePw()">تغيير كلمة المرور</button><p id="cpMsg"></p><button class="btn" onclick="logout()">تسجيل الخروج</button></div></div>
+    <div class="card hidden" id="adminPanel"><h2>لوحة التحكم</h2><div><button class="btn" onclick="loadUsers()">حسابات الدخول</button> <button class="btn" onclick="loadMsgs()">رسائل التواصل</button></div><div id="adminOut"></div>
+    <h3>إضافة خبر</h3><input id="nTitle" placeholder="عنوان الخبر"><textarea id="nBody" placeholder="نص الخبر"></textarea><button class="btn" onclick="addNews()">إضافة</button>
+    <h3>استيراد بنك أسئلة (JSON)</h3><textarea id="impJson" placeholder='[{"courseCode":"TRM-101","question":"...","options":["أ","ب","ج","د"],"correct":0}]'></textarea><button class="btn" onclick="importQ()">استيراد</button><p id="impMsg"></p></div></section>
+</main>
+<footer>معهد طيبة العالي للتدريب — دبلوم السياحة والفندقة — <span id="fEmail"></span></footer>
+<script src="/app.js"></script>
+</body></html>
