@@ -85,6 +85,11 @@
       <div id="bookingList" class="grid"></div>
     </div>
     <div class="card">
+      <h2 class="section-title">📤 الكتب المرفوعة من لوحة التحكم</h2>
+      <p class="lead">كتب PDF رفعها الطاقم من لوحة التحكم — تظهر هنا فور رفعها وتُنزَّل بصيغة PDF بعد تسجيل الدخول.</p>
+      <div id="uploadedList" class="grid"></div>
+    </div>
+    <div class="card">
       <h2 class="section-title">🗺️ كتب الوجهات السياحية</h2>
       <p class="lead">كتاب معلومات عامة عن كل وجهة من وجهات المملكة — اقرئي التفاصيل الكاملة في تبويب «الأرقام والأماكن».</p>
       <div id="destBooks" class="grid"></div>
@@ -213,6 +218,7 @@
         <button id="at-news" onclick="adminTab('news')">📰 إضافة خبر</button>
         <button id="at-course" onclick="adminTab('course')">📚 إضافة مقرر / كتاب</button>
         <button id="at-import" onclick="adminTab('import')">📥 استيراد بنك أسئلة</button>
+        <button id="at-upload" onclick="adminTab('upload')">📤 رفع ملفات</button>
       </div>
       <div id="admin-users" class="admin-pane">
         <p class="muted">اضغطي «عرض الحسابات» ثم اكتبي كلمة مرور جديدة لأي حساب واضغطي «تعيين» — لا يمكن تعيين كلمة مرور لحسابك أنت من هنا (استخدمي «تغيير كلمة المرور» أعلاه).</p>
@@ -244,6 +250,30 @@
         <textarea id="impJson" style="min-height:130px">[{"courseCode":"TRM-101","type":"mcq","question":"مثال سؤال؟","options":["الخيار الأول","الخيار الثاني","الخيار الثالث","الخيار الرابع"],"correct":0,"explanation":"شرح الإجابة."}]</textarea>
         <button class="btn" onclick="importQ()">📥 استيراد الأسئلة</button>
         <p id="impMsg"></p>
+      </div>
+      <div id="admin-upload" class="admin-pane hidden">
+        <h3>📕 رفع كتاب (PDF)</h3>
+        <p class="muted">يُحفظ الكتاب في قاعدة البيانات ويظهر فوراً في المكتبة، ويصبح قابلاً للتنزيل بصيغة PDF بعد تسجيل الدخول. حد الملف 25 ميغابايت.</p>
+        <label>عنوان الكتاب</label><input id="upBookTitle" placeholder="مثال: كتاب الإرشاد السياحي">
+        <div class="form-row">
+          <div><label>رمز الكتاب (اختياري — يُنشأ تلقائياً إن ترك فارغاً)</label><input id="upBookCode" placeholder="مثال: BK-GUIDE"></div>
+          <div><label>وصف مختصر</label><input id="upBookDesc" placeholder="وصف الكتاب"></div>
+        </div>
+        <label>ملف PDF</label><input id="upBookFile" type="file" accept=".pdf,application/pdf">
+        <button class="btn" onclick="uploadBook()">📤 رفع الكتاب</button>
+        <p id="upBookMsg"></p>
+        <hr>
+        <h3>📝 رفع بنك أسئلة (Excel / CSV / JSON)</h3>
+        <p class="muted">أعمدة ملف Excel/CSV: <b>question</b> و <b>options</b> (الخيارات مفصولة بـ | ) و <b>correct</b> (حرف أ/ب/ج/د أو رقم 1-4 أو نص الإجابة) و <b>type</b> (mcq أو tf) و <b>explanation</b> و <b>courseCode</b> (اختياري إن اخترتِ المقرر أدناه). ملف JSON: مصفوفة أسئلة بنفس حقول اللصق أعلاه. تظهر الأسئلة فوراً في اختبار المقرر.</p>
+        <label>المقرر</label><select id="upQCourse"></select>
+        <label>ملف الأسئلة</label><input id="upQFile" type="file" accept=".xlsx,.xls,.csv,.json">
+        <button class="btn" onclick="uploadQuestions()">📤 رفع بنك الأسئلة</button>
+        <p id="upQMsg"></p>
+        <hr>
+        <h3>📁 الملفات المرفوعة</h3>
+        <button class="btn" onclick="loadUploads()">📁 عرض الملفات المرفوعة</button>
+        <div id="upList"></div>
+        <p class="muted">ملاحظة: الملفات المرفوعة محفوظة داخل قاعدة البيانات، فتبقى معها — وتبقى بعد إعادة النشر فقط إن كان القرص الدائم <span dir="ltr">/var/data</span> مرفقاً في Render، مثل كل بيانات الموقع.</p>
       </div>
     </div>
   </section>

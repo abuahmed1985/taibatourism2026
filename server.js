@@ -10,6 +10,10 @@
  * structured bilingual document (Arabic headings may render unshaped in
  * some readers). The Word (.doc) download and the in-browser print view
  * shape Arabic correctly — use those for the Arabic book. See README §7.
+ * Book images: Word downloads are MHTML (multipart/related) with each image
+ * embedded once (data: URIs do not render in Microsoft Word); PDF books
+ * embed the cover + one image per unit, fetched with up to 3 retries, with
+ * the caption shown if an image cannot be fetched. See README §7.
  */
 const express = require('express');
 const path = require('path');
@@ -19,6 +23,8 @@ const bcrypt = require('bcryptjs');
 const { DatabaseSync } = require('node:sqlite');
 const PDFDocument = require('pdfkit');
 const PptxGenJS = require('pptxgenjs');
+const multer = require('multer');
+const XLSX = require('xlsx');
 const seed = require('./seed');
 
 const PORT = process.env.PORT || 3000;
@@ -56,7 +62,12 @@ CREATE TABLE IF NOT EXISTS stats(id INTEGER PRIMARY KEY AUTOINCREMENT, value TEX
 CREATE TABLE IF NOT EXISTS videos(id INTEGER PRIMARY KEY AUTOINCREMENT, titleAr TEXT, titleEn TEXT, query TEXT);
 CREATE TABLE IF NOT EXISTS photos(id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, category TEXT, captionAr TEXT);
 CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, message TEXT, createdAt TEXT);
-CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);`);
+CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
+-- Uploaded book files: stored as BLOBs in the database (not on the disk),
+-- so they survive exactly as long as the database file does — i.e. they
+-- persist across redeploys only when the /var/data persistent disk is
+-- attached; without the disk they are lost on redeploy like all other data.
+CREATE TABLE IF NOT EXISTS uploaded_files(id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL, filename TEXT, mime TEXT, size INTEGER, data BLOB, uploadedBy TEXT, createdAt TEXT);`);
 
 function seedIfEmpty() {
   const n = db.prepare('SELECT COUNT(*) c FROM courses').get().c;
@@ -97,8 +108,25 @@ function seedIfEmpty() {
   seed.VIDEOS_SEED.forEach(x => insV.run(x.titleAr, x.titleEn, x.query));
   const insP = db.prepare('INSERT INTO photos(url,category,captionAr) VALUES (?,?,?)');
   const cats = ['وجهات المملكة', 'الفندقة', 'الطبيعة', 'التراث'];
-  const pool = ['1507525428034-b723cf961d3e', '1512453979798-5ea266f8880c', '1539650116574-75c0c6d73f6e', '1544551763-46a013bb70d5', '1566073771259-6a8506099945', '1571003123894-1f0594d2b5d9', '1518684079-3c830d2e7c61', '1520250497591-112f2f40a3f4', '1551882547-ff40c63fe5fa', '1582719508461-905c673771fd'];
-  for (let i = 0; i < 119; i++) {
+  const pool = ['1507525428034-b723cf961d3e', '1512453979798-5ea266f8880c', '1503220317375-aaad61436b1b', '1544551763-46a013bb70d5', '1566073771259-6a8506099945', '1571003123894-1f0594d2b5d9', '1512632578888-169bbbc64f33', '1520250497591-112f2f40a3f4', '1551882547-ff40c63fe5fa', '1582719508461-905c673771fd'];
+  // NOTE: pool IDs 1539650116574-75c0c6d73f6e and 1518684079-3c830d2e7c61 were
+  // removed — both return HTTP 404 from Unsplash (verified 2026-11-24).
+  // Replacements are Unsplash IDs already used in this project's Apps Script
+  // file (verified HTTP 200): desert for Diriyah, nature for Asir.
+  // First 8 photos are the real destination photos of the library: one per
+  // destination (AlUla, Diriyah, Historic Jeddah, Red Sea, Asir, NEOM,
+  // Al-Ahsa oasis, Makkah & Madinah / Kaaba). URLs reuse the existing
+  // Unsplash pool IDs already in the codebase — no new URLs are invented;
+  // the captions name the real destination each photo stands for, so books
+  // and cards can pick the Al-Ahsa oasis and Makkah/Madinah photos by name.
+  const destPhotos = [
+    { n: 'العلا — مدائن صالح', id: pool[1] }, { n: 'الدرعية التاريخية', id: pool[6] },
+    { n: 'جدة التاريخية — البلد', id: pool[3] }, { n: 'البحر الأحمر', id: pool[0] },
+    { n: 'عسير — جبال السودة', id: pool[2] }, { n: 'نيوم', id: pool[7] },
+    { n: 'واحة الأحساء — واحة النخيل', id: pool[4] }, { n: 'مكة المكرمة والمدينة المنورة — الكعبة المشرفة والمسجد النبوي', id: pool[5] },
+  ];
+  destPhotos.forEach(d => insP.run(`https://images.unsplash.com/photo-${d.id}?auto=format&fit=crop&w=900&q=60`, 'وجهات المملكة', 'صورة وجهة: ' + d.n));
+  for (let i = 8; i < 119; i++) {
     const id = pool[i % pool.length];
     insP.run(`https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=900&q=60`, cats[i % cats.length], 'صورة ' + (i + 1) + ' — ' + cats[i % cats.length]);
   }
@@ -180,7 +208,9 @@ app.get('/api/courses/:code', (req, res) => {
   res.json(c);
 });
 app.get('/api/courses/:code/questions', auth, (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit || '20', 10), 208);
+  // Cap 1000 (was 208): uploaded questions have higher ids than the seeded
+  // 208, so a 208 cap cut them off entirely and they never reached a quiz.
+  const limit = Math.min(parseInt(req.query.limit || '20', 10), 1000);
   res.json(db.prepare('SELECT id,type,question,options,correct,explanation FROM questions WHERE courseCode=? ORDER BY id LIMIT ?').all(req.params.code, limit)
     .map(q => ({ ...q, options: JSON.parse(q.options) })));
 });
@@ -265,6 +295,97 @@ app.post('/api/admin/library', auth, requireRole(...STAFF), (req, res) => {
 });
 app.delete('/api/admin/news/:id', auth, requireRole(...STAFF), (req, res) => { db.prepare('DELETE FROM news WHERE id=?').run(req.params.id); res.json({ ok: true }); });
 
+// ---- admin file uploads (staff only) ----
+// Files are stored in the SQLite database, not on disk: uploaded books as
+// BLOBs in uploaded_files, question banks parsed straight into questions.
+// They therefore live exactly as long as the database file — persistent
+// across redeploys only with the /var/data disk attached, like all data.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; } else cur += ch; }
+    else if (ch === '"') inQ = true;
+    else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); cur = ''; if (row.some(c => c.trim() !== '')) rows.push(row); row = []; }
+    else cur += ch;
+  }
+  if (cur !== '' || row.length) { row.push(cur); if (row.some(c => c.trim() !== '')) rows.push(row); }
+  if (!rows.length) return [];
+  const head = rows[0].map(h => String(h).trim().toLowerCase());
+  return rows.slice(1).map(r => { const o = {}; head.forEach((h, i) => o[h] = r[i] ?? ''); return o; });
+}
+function normQuestions(rows, defaultCourse) {
+  const out = [];
+  const letterMap = { 'أ': 0, 'ب': 1, 'ج': 2, 'د': 3, 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+  for (const r of rows) {
+    const q = String(r.question ?? r['السؤال'] ?? r.q ?? '').trim();
+    if (!q) continue;
+    let opts = r.options;
+    if (typeof opts === 'string') opts = opts.split('|').map(s => s.trim()).filter(Boolean);
+    if (!Array.isArray(opts)) opts = [r.option1 ?? r['الخيار الأول'], r.option2 ?? r['الخيار الثاني'], r.option3 ?? r['الخيار الثالث'], r.option4 ?? r['الخيار الرابع']].filter(v => v !== undefined && v !== '').map(String);
+    if (opts.length < 2) continue;
+    let correct = r.correct ?? r['الإجابة الصحيحة'] ?? r.answer ?? 0;
+    if (typeof correct === 'string') {
+      const t = correct.trim();
+      if (t in letterMap) correct = letterMap[t];
+      else if (opts.includes(t)) correct = opts.indexOf(t);
+      else { const n = parseInt(t, 10); correct = Number.isNaN(n) ? 0 : n - 1; }
+    } else if (typeof correct === 'number') correct = correct >= 1 ? correct - 1 : 0;
+    correct = Math.max(0, Math.min(opts.length - 1, correct | 0));
+    const type = String(r.type ?? (opts.length === 2 && (opts[0] === 'صح' || opts[0] === 'خطأ') ? 'tf' : 'mcq')).toLowerCase();
+    out.push({ courseCode: String((r.courseCode ?? r.code ?? defaultCourse ?? '')).trim(), type: type === 'tf' ? 'tf' : 'mcq', question: q, options: opts.map(String), correct, explanation: String(r.explanation ?? r['الشرح'] ?? '') });
+  }
+  return out.filter(x => x.courseCode);
+}
+function parseQuestionFile(buf, filename) {
+  const name = (filename || '').toLowerCase();
+  if (name.endsWith('.json')) { const j = JSON.parse(buf.toString('utf8')); return Array.isArray(j) ? j : (Array.isArray(j.questions) ? j.questions : []); }
+  if (name.endsWith('.csv')) return parseCsv(buf.toString('utf8').replace(/^\uFEFF/, ''));
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    const wb = XLSX.read(buf, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { defval: '' });
+  }
+  throw new Error('unsupported-file-type');
+}
+// Upload a book (PDF): stored in the DB and listed in the library at once.
+app.post('/api/admin/upload-book', auth, requireRole(...STAFF), upload.single('file'), (req, res) => {
+  try {
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: 'no-file' });
+    const titleAr = String(req.body.titleAr || '').trim();
+    if (!titleAr) return res.status(400).json({ error: 'title-required' });
+    if (!/\.pdf$/i.test(f.originalname) && f.mimetype !== 'application/pdf') return res.status(400).json({ error: 'pdf-only' });
+    const code = String(req.body.code || ('UP-' + Date.now())).trim().toUpperCase().replace(/[^A-Z0-9-]/g, '-');
+    db.prepare('INSERT INTO uploaded_files(code,filename,mime,size,data,uploadedBy,createdAt) VALUES (?,?,?,?,?,?,?) ON CONFLICT(code) DO UPDATE SET filename=excluded.filename,mime=excluded.mime,size=excluded.size,data=excluded.data,uploadedBy=excluded.uploadedBy,createdAt=excluded.createdAt')
+      .run(code, f.originalname, 'application/pdf', f.size, f.buffer, req.user.username, new Date().toISOString());
+    db.prepare('INSERT OR REPLACE INTO library_books VALUES (?,?,?,?,?)').run(code, titleAr, String(req.body.titleEn || ''), String(req.body.descAr || ''), 'uploaded');
+    res.json({ ok: true, code, filename: f.originalname, size: f.size });
+  } catch (e) { console.error('upload-book error:', e.message); res.status(500).json({ error: 'upload-failed' }); }
+});
+// Upload a question bank (Excel / CSV / JSON): parsed into the questions
+// table, so the new questions appear immediately in the course quiz.
+app.post('/api/admin/upload-questions', auth, requireRole(...STAFF), upload.single('file'), (req, res) => {
+  try {
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: 'no-file' });
+    const courseCode = String(req.body.courseCode || '').trim();
+    let rows;
+    try { rows = parseQuestionFile(f.buffer, f.originalname); } catch (e) { return res.status(400).json({ error: 'parse-failed', detail: e.message }); }
+    const qs = normQuestions(rows, courseCode);
+    if (!qs.length) return res.status(400).json({ error: 'no-valid-questions' });
+    const ins = db.prepare('INSERT INTO questions(courseCode,type,question,options,correct,explanation) VALUES (?,?,?,?,?,?)');
+    for (const q of qs) ins.run(q.courseCode, q.type, q.question, JSON.stringify(q.options), q.correct, q.explanation);
+    res.json({ ok: true, imported: qs.length, courseCode: qs[0].courseCode });
+  } catch (e) { console.error('upload-questions error:', e.message); res.status(500).json({ error: 'upload-failed' }); }
+});
+app.get('/api/admin/uploads', auth, requireRole(...STAFF), (req, res) => {
+  res.json(db.prepare('SELECT id,code,filename,mime,size,uploadedBy,createdAt FROM uploaded_files ORDER BY id DESC').all());
+});
+
 // ---- downloads: login required for ALL formats; Word/PPTX staff only ----
 // Trainees: PDF only. Trainer / academic / admin: PDF + Word + PowerPoint.
 function courseBook(code) {
@@ -283,29 +404,115 @@ function courseBook(code) {
 }
 function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-app.get('/api/download/:code/:format', auth, (req, res) => {
+// ---- book images: fetched once, retried up to 3 times, caption fallback ----
+// Full-site fix ported here: Word books are MHTML (data: URIs do not render
+// in Microsoft Word) and PDF books embed the images. Each image is fetched
+// once even if used twice (cover + unit), and if a fetch fails after 3
+// retries the image's caption is shown in its place instead of a silent blank.
+async function fetchImage(url, attempts = 3) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'Taiba-Tourism/1.0' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length < 1000) throw new Error('image too small');
+      return buf;
+    } catch (e) { lastErr = e; await new Promise(r => setTimeout(r, 400 * (i + 1))); }
+  }
+  console.warn(`[book-img] failed ${url}: ${lastErr && lastErr.message}`);
+  return null;
+}
+// Pick images for a book: cover = the destination photo named in the book's
+// title/description when one matches (Al-Ahsa oasis / Makkah & Madinah Kaaba
+// / AlUla / Diriyah / Jeddah / Red Sea / Asir / NEOM), otherwise the first
+// library photo; then one photo per unit, all de-duplicated by URL.
+function bookImages(book) {
+  const all = db.prepare('SELECT * FROM photos ORDER BY id').all();
+  if (!all.length) return [];
+  const hay = (book.titleAr + ' ' + (book.descAr || '') + ' ' + book.units.map(u => u.titleAr).join(' '));
+  const destNames = ['الأحساء', 'مكة', 'المدينة', 'العلا', 'الدرعية', 'جدة', 'البحر الأحمر', 'عسير', 'نيوم'];
+  const cover = all.find(p => destNames.some(n => hay.includes(n) && p.captionAr.includes(n)))
+    || all.find(p => p.category === 'وجهات المملكة') || all[0];
+  const picked = [{ slot: 'cover', caption: cover.captionAr, url: cover.url }];
+  const rest = all.filter(p => p.url !== cover.url);
+  book.units.forEach((u, i) => {
+    const p = rest[(i * 2) % rest.length];
+    picked.push({ slot: 'unit' + (i + 1), caption: u.titleAr, url: p.url });
+  });
+  // De-duplicate by URL, keeping the first slot for each image.
+  const seen = new Set(), out = [];
+  for (const p of picked) { if (!seen.has(p.url)) { seen.add(p.url); out.push(p); } }
+  return out;
+}
+async function loadBookImages(book) {
+  const list = bookImages(book);
+  const out = [];
+  for (const item of list) {
+    const buf = await fetchImage(item.url);
+    out.push({ ...item, buf }); // buf null => render caption only
+  }
+  return out;
+}
+
+app.get('/api/download/:code/:format', auth, async (req, res) => {
   const { code, format } = req.params;
   if (!['pdf', 'doc', 'pptx'].includes(format)) return res.status(400).json({ error: 'bad-format' });
   if ((format === 'doc' || format === 'pptx') && !STAFF.includes(req.user.role))
     return res.status(403).json({ error: 'word-pptx-staff-only' });
   const book = courseBook(code);
   if (!book) return res.status(404).json({ error: 'book-not-found' });
+  // Uploaded books: the stored PDF file is served as-is (login-gated above,
+  // trainees PDF only — the staff check below still applies to doc/pptx).
+  if (format === 'pdf') {
+    const up = db.prepare('SELECT filename,data FROM uploaded_files WHERE code=?').get(code);
+    if (up) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${String(up.filename).replace(/"/g, '')}"`);
+      // node:sqlite returns BLOBs as Uint8Array; Express would JSON-encode
+      // a bare Uint8Array, so convert to a Buffer for a byte-exact download.
+      return res.send(Buffer.from(up.data));
+    }
+  } else if (db.prepare('SELECT 1 FROM uploaded_files WHERE code=?').get(code)) {
+    return res.status(400).json({ error: 'uploaded-book-pdf-only' });
+  }
   const fileBase = `${book.code}-${book.titleEn.replace(/[^A-Za-z0-9]+/g, '-') || 'book'}`;
   if (format === 'doc') {
+    // Word (MHTML): data: URIs do not render in Microsoft Word, so the book
+    // is a multipart/related document — HTML part + one part per image,
+    // each image included once even if referenced twice. Images fetched with
+    // up to 3 retries; a failed image shows its caption instead of a blank.
+    const images = await loadBookImages(book);
+    const imgBySlot = Object.fromEntries(images.map(im => [im.slot, im]));
+    const imgTag = (slot, alt) => {
+      const im = imgBySlot[slot];
+      if (!im) return '';
+      if (im.buf) return `<p style="text-align:center"><img src="cid:${slot}" alt="${esc(alt)}" style="width:520px;max-width:100%"></p><p style="text-align:center;font-size:11pt;color:#555">${esc(im.caption)}</p>`;
+      return `<p style="text-align:center;font-size:11pt;color:#555">[صورة: ${esc(im.caption)} — تعذّر تحميل الصورة]</p>`;
+    };
     let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" dir="rtl" lang="ar"><head><meta charset="utf-8"><style>
 @page{size:A4;margin:2.5cm 2.5cm 2.5cm 2.5cm} body{font-family:'Sakkal Majalla',serif;font-size:16pt;text-align:justify;line-height:1.8;direction:rtl}
 h1,h2,h3{font-family:'Sultan Medium','Sakkal Majalla',serif;text-align:center} .cover{text-align:center;padding-top:120px}
 .unit{page-break-before:always} .hdr{width:100%;border-bottom:3px solid gold} .hdr td{font-size:12pt} .frame{border:3px double #0aa5c2;padding:18px}
-</style></head><body><div class="frame"><div class="cover"><p>المؤسسة العامة للتدريب التقني والمهني</p><h1>معهد طيبة العالي للتدريب</h1><h2>دبلوم السياحة والفندقة</h2><h1>${esc(book.titleAr)}</h1><p>${esc(book.titleEn)}</p></div>`;
+</style></head><body><div class="frame"><div class="cover"><p>المؤسسة العامة للتدريب التقني والمهني</p><h1>معهد طيبة العالي للتدريب</h1><h2>دبلوم السياحة والفندقة</h2><h1>${esc(book.titleAr)}</h1><p>${esc(book.titleEn)}</p>${imgTag('cover', book.titleAr)}</div>`;
     book.units.forEach((u, i) => {
-      html += `<div class="unit"><table class="hdr"><tr><td>معهد طيبة العالي للتدريب</td><td style="text-align:center">${esc(book.titleAr)}</td><td style="text-align:left">المؤسسة العامة للتدريب التقني والمهني</td></tr></table><h2>الوحدة ${i + 1}: ${esc(u.titleAr)}</h2>`;
+      html += `<div class="unit"><table class="hdr"><tr><td>معهد طيبة العالي للتدريب</td><td style="text-align:center">${esc(book.titleAr)}</td><td style="text-align:left">المؤسسة العامة للتدريب التقني والمهني</td></tr></table><h2>الوحدة ${i + 1}: ${esc(u.titleAr)}</h2>${imgTag('unit' + (i + 1), u.titleAr)}`;
       for (const l of u.lessons) { html += `<h3>${esc(l.titleAr)}</h3><p>${esc(l.bodyAr)}</p>${l.exampleAr ? `<p><b>مثال تطبيقي:</b> ${esc(l.exampleAr)}</p>` : ''}${l.activityAr ? `<p><b>نشاط:</b> ${esc(l.activityAr)}</p>` : ''}`; }
       html += `</div>`;
     });
     html += `<p style="text-align:center">نهاية الكتاب — بنك الأسئلة تنزيل منفصل من الموقع.</p></div></body></html>`;
-    res.setHeader('Content-Type', 'application/msword; charset=utf-8');
+    const boundary = '----=_TaibaBook_' + crypto.randomBytes(8).toString('hex');
+    const b64 = (s) => Buffer.from(s, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+    let mhtml = `MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary="${boundary}"\r\n\r\n`;
+    mhtml += `--${boundary}\r\nContent-Type: text/html; charset="utf-8"\r\nContent-Transfer-Encoding: base64\r\nContent-Location: file:///C:/book.html\r\n\r\n${b64(html)}\r\n`;
+    for (const im of images) {
+      if (!im.buf) continue;
+      mhtml += `--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Transfer-Encoding: base64\r\nContent-Location: file:///C:/${im.slot}.jpg\r\nContent-ID: <${im.slot}>\r\n\r\n${im.buf.toString('base64').replace(/(.{76})/g, '$1\r\n')}\r\n`;
+    }
+    mhtml += `--${boundary}--\r\n`;
+    res.setHeader('Content-Type', `multipart/related; boundary="${boundary}"`);
     res.setHeader('Content-Disposition', `attachment; filename="${fileBase}.doc"`);
-    return res.send(html);
+    return res.send(mhtml);
   }
   if (format === 'pptx') {
     const pptx = new PptxGenJS();
@@ -329,6 +536,22 @@ h1,h2,h3{font-family:'Sultan Medium','Sakkal Majalla',serif;text-align:center} .
     return pptx.write({ outputType: 'nodebuffer' }).then(buf => res.send(buf)).catch(e => { console.error('PPTX error:', e.message); if (!res.headersSent) res.status(500).json({ error: 'pptx-failed' }); });
   }
   // PDF via pdfkit — structured bilingual document. Arabic shaping caveat: see header comment.
+  // Images are now embedded (fetched with up to 3 retries): a cover image
+  // after the title and one image per unit page, each with its caption;
+  // a failed image shows its caption in a box instead of a silent blank.
+  const images = await loadBookImages(book);
+  const imgBySlot = Object.fromEntries(images.map(im => [im.slot, im]));
+  const drawImageOrCaption = (slot, y) => {
+    const im = imgBySlot[slot];
+    const cap = im ? im.caption : slot;
+    if (im && im.buf) {
+      try { doc.image(im.buf, 60, y, { fit: [475, 260], align: 'center' }); doc.moveDown(14); }
+      catch (e) { console.warn(`[book-img] pdfkit could not draw ${slot}: ${e.message}`); doc.fontSize(10).fillColor('#888888').text(`[صورة: ${cap} — تعذّر عرض الصورة]`, { align: 'center' }).fillColor('#000000'); }
+    } else {
+      doc.fontSize(10).fillColor('#888888').text(`[صورة: ${cap} — تعذّر تحميل الصورة]`, { align: 'center' }).fillColor('#000000');
+    }
+    doc.fontSize(9).fillColor('#555555').text(cap, { align: 'center' }).fillColor('#000000');
+  };
   const doc = new PDFDocument({ size: 'A4', margin: 60, bufferPages: true });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${fileBase}.pdf"`);
@@ -336,10 +559,14 @@ h1,h2,h3{font-family:'Sultan Medium','Sakkal Majalla',serif;text-align:center} .
   doc.fontSize(22).text('Taiba Institute — Tourism & Hospitality Diploma', { align: 'center' });
   doc.moveDown().fontSize(18).text(book.titleEn, { align: 'center' });
   doc.moveDown().fontSize(12).text(`Course: ${book.code}  |  Institute: Taiba Higher Training Institute  |  TVTC`, { align: 'center' });
+  doc.moveDown();
+  drawImageOrCaption('cover', doc.y);
   doc.moveDown().fontSize(11).text(book.descAr || '', { align: 'left' });
   book.units.forEach((u, i) => {
     doc.addPage();
     doc.fontSize(16).text(`Unit ${i + 1}: ${u.titleAr}`, { align: 'left' });
+    doc.moveDown();
+    drawImageOrCaption('unit' + (i + 1), doc.y);
     for (const l of u.lessons) { doc.moveDown().fontSize(12).text(l.titleAr); doc.fontSize(10).text(l.bodyAr || ''); if (l.exampleAr) doc.fontSize(10).text('Example: ' + l.exampleAr); }
   });
   const pages = doc.bufferedPageRange();

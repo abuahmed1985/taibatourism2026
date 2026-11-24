@@ -116,7 +116,11 @@ async function startQuiz(code){
   const box = $('quizBox'); box.innerHTML = '<p class="muted">جارٍ تحميل الأسئلة…</p>';
   quizScore = 0; quizAnswered = 0;
   try{
-    const qs = await api(`/api/courses/${code}/questions?limit=10`);
+    // Fetch up to 500 questions and sample 10 at random, so questions
+    // uploaded later from the admin panel (higher ids) can appear in the
+    // quiz instead of always the first 10 seeded ones.
+    const all = await api(`/api/courses/${code}/questions?limit=500`);
+    const qs = all.slice().sort(() => Math.random() - 0.5).slice(0, 10);
     quizTotal = qs.length;
     box.innerHTML = `<h3>🧠 الاختبار التفاعلي — ${qs.length} أسئلة</h3>` + qs.map((q,i)=>`
       <div class="quiz-q" data-answered="0"><p><b>${i+1}.</b> ${esc(q.question)}</p>
@@ -144,12 +148,16 @@ async function loadLibrary(){
     const [books, dests] = await Promise.all([api('/api/library'), api('/api/destinations')]);
     const courseBooks = books.filter(b=>b.kind==='course');
     const bookingBooks = books.filter(b=>b.kind==='booking');
+    const uploadedBooks = books.filter(b=>b.kind==='uploaded');
     $('libraryList').innerHTML = courseBooks.map(b=>`
       <div class="card course-card"><span class="badge">📕 كتاب مقرر</span><h3>${esc(b.titleAr)}</h3>
       <p class="muted">${esc(b.descAr)}</p><div>${dlBtns(b.code)}</div></div>`).join('');
     $('bookingList').innerHTML = bookingBooks.map(b=>`
       <div class="card course-card"><span class="badge">💻 نظام حجوزات</span><h3>${esc(b.titleAr)}</h3>
       <p class="muted">${esc(b.descAr)}</p><div>${dlBtns(b.code)}</div></div>`).join('');
+    $('uploadedList').innerHTML = uploadedBooks.length ? uploadedBooks.map(b=>`
+      <div class="card course-card"><span class="badge">📤 كتاب مرفوع</span><h3>${esc(b.titleAr)}</h3>
+      <p class="muted">${esc(b.descAr)}</p><div>${dlBtns(b.code)}</div></div>`).join('') : '<p class="muted">لا توجد كتب مرفوعة بعد — ارفعي كتاباً من لوحة التحكم.</p>';
     $('destBooks').innerHTML = dests.map(x=>`
       <div class="card course-card"><span class="badge">🗺️ كتاب وجهة</span><h3>كتاب ${esc(x.nameAr)}</h3>
       <p class="muted">${esc(x.descAr)}</p>
@@ -269,13 +277,14 @@ function openAdmin(){ $('adminPanel').scrollIntoView({behavior:'smooth'}); admin
 
 /* ---------- admin panel ---------- */
 function adminTab(name){
-  ['users','msgs','news','course','import'].forEach(n=>{
+  ['users','msgs','news','course','import','upload'].forEach(n=>{
     const pane = $('admin-'+n), btn = $('at-'+n);
     if(pane) pane.classList.toggle('hidden', n!==name);
     if(btn) btn.classList.toggle('active', n===name);
   });
   if(name==='users') loadUsers();
   if(name==='msgs') loadMsgs();
+  if(name==='upload'){ fillQCourseSelect(); loadUploads(); }
 }
 async function loadUsers(){
   try{
@@ -321,6 +330,54 @@ async function importQ(){
     const d = await api('/api/admin/questions/import',{method:'POST',body:JSON.stringify({questions:rows})});
     $('impMsg').textContent = '✅ تم استيراد ' + d.imported + ' سؤالاً.';
   }catch(e){ $('impMsg').textContent = 'تعذر الاستيراد: ' + e.message; }
+}
+
+/* ---------- admin file uploads ---------- */
+function fillQCourseSelect(){
+  const sel = $('upQCourse');
+  if(!sel) return;
+  if(!allCourses.length) { loadCourses().then(fillQCourseSelect); return; }
+  sel.innerHTML = allCourses.map(c=>`<option value="${esc(c.code)}">${esc(c.code)} — ${esc(c.titleAr)}</option>`).join('');
+}
+async function uploadBook(){
+  const f = $('upBookFile').files[0];
+  if(!$('upBookTitle').value.trim()){ $('upBookMsg').textContent = 'اكتبي عنوان الكتاب.'; return; }
+  if(!f){ $('upBookMsg').textContent = 'اختاري ملف PDF أولاً.'; return; }
+  const fd = new FormData();
+  fd.append('titleAr', $('upBookTitle').value.trim());
+  fd.append('code', $('upBookCode').value.trim());
+  fd.append('descAr', $('upBookDesc').value.trim());
+  fd.append('file', f);
+  $('upBookMsg').textContent = 'جارٍ الرفع…';
+  try{
+    const r = await fetch('/api/admin/upload-book', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    $('upBookMsg').textContent = '✅ تم رفع الكتاب «' + d.filename + '» — ظهر الآن في المكتبة (قسم الكتب المرفوعة).';
+    $('upBookTitle').value = ''; $('upBookCode').value = ''; $('upBookDesc').value = ''; $('upBookFile').value = '';
+    loadLibrary(); loadUploads();
+  }catch(e){ $('upBookMsg').textContent = 'تعذر الرفع: ' + e.message + (e.message==='pdf-only' ? ' — الملف يجب أن يكون PDF.' : ''); }
+}
+async function uploadQuestions(){
+  const f = $('upQFile').files[0];
+  if(!f){ $('upQMsg').textContent = 'اختاري ملف الأسئلة أولاً (Excel / CSV / JSON).'; return; }
+  const fd = new FormData();
+  fd.append('courseCode', $('upQCourse').value || '');
+  fd.append('file', f);
+  $('upQMsg').textContent = 'جارٍ الرفع والتحليل…';
+  try{
+    const r = await fetch('/api/admin/upload-questions', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    $('upQMsg').textContent = '✅ تم استيراد ' + d.imported + ' سؤالاً إلى المقرر ' + d.courseCode + ' — تظهر فوراً في اختبار المقرر.';
+    $('upQFile').value = '';
+  }catch(e){ $('upQMsg').textContent = 'تعذر الرفع: ' + e.message; }
+}
+async function loadUploads(){
+  try{
+    const u = await api('/api/admin/uploads');
+    $('upList').innerHTML = u.length ? u.map(x=>`<div class="msg-row"><b>${esc(x.filename)}</b> — الرمز <span dir="ltr">${esc(x.code)}</span> — ${(x.size/1024).toFixed(0)} ك.ب — رفعها ${esc(x.uploadedBy||'—')} <span class="muted">${esc((x.createdAt||'').slice(0,10))}</span></div>`).join('') : '<p class="muted">لا توجد ملفات مرفوعة بعد.</p>';
+  }catch(e){ $('upList').textContent = 'تعذر تحميل القائمة: ' + e.message; }
 }
 
 /* ---------- boot ---------- */
